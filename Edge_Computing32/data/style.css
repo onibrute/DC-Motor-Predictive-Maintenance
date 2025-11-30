@@ -1,0 +1,116 @@
+:root {
+  --bg-color:#1a202c;
+  --card-color:rgba(45,55,72,0.6);
+  --sidebar-color:#21293a;
+  --text-color:#e2e8f0;
+  --accent-color:#4CAF50;
+  --green:#4CAF50;
+  --yellow:#FFA500;
+  --red:#FF0000;
+  --grey:#B0B0B0;
+  --border-color:rgba(255,255,255,.1);
+  --alert-bg: transparent;
+  }
+  body.light-theme {
+  --bg-color:#f4f4f4;
+  --card-color:rgba(255,255,255,.85);
+  --sidebar-color:#e2e8f0;
+  --text-color:#212121;
+  --accent-color:#4CAF50;
+  --green:#4CAF50;
+  --yellow:#FFA500;
+  --red:#FF0000;
+  --grey:#A0A0A0;
+  --border-color:rgba(0,0,0,.1);
+  --alert-bg: transparent;
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background-color:var(--bg-color); color:var(--text-color);
+    margin:0; display:flex; transition:.3s background-color,.3s color;
+    background-color:var(--alert-bg,var(--bg-color));
+  }
+  .sidebar{
+    width:80px; background:var(--sidebar-color); padding:20px 0;
+    display:flex; flex-direction:column; align-items:center; height:100vh;
+    position:fixed; top:0; left:0; z-index:10; transition:.3s background-color;
+  }
+  .main-wrapper{ margin-left:80px; width:calc(100% - 80px); display:flex; flex-direction:column; height:100vh; }
+  .main-content{ flex-grow:1; padding:20px; overflow-y:auto; }
+  .secondary-header{ padding:15px 20px; background:rgba(45,55,72,.5); backdrop-filter:blur(5px); border-bottom:1px solid var(--border-color); }
+  .footer{ padding:10px 20px; background:var(--sidebar-color); font-size:.8em; color:var(--grey); border-top:1px solid var(--border-color); transition:.3s background-color;}
+  .sidebar-logo{ font-weight:bold; font-size:1.2em; color:var(--accent-color); margin-bottom:40px;}
+  .nav-icon{ margin-bottom:30px; cursor:pointer; padding:10px; border-radius:8px; transition:.3s background-color;}
+  .nav-icon svg{ width:24px; height:24px; fill:var(--grey); transition:.3s fill;}
+  .nav-icon:hover,.nav-icon.active{ background-color:rgba(159,122,234,.2); }
+  .nav-icon.active svg{ fill:var(--accent-color); }
+  .container{ max-width:1200px; margin:0 auto; }
+  h1{ text-align:center; color:var(--accent-color); margin-bottom:30px; font-size:2.5em; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(350px,1fr)); gap:20px; }
+  .card{
+    background:var(--card-color); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid var(--border-color); border-radius:15px; padding:25px;
+    box-shadow:0 4px 30px rgba(0,0,0,.1); transition:.3s background-color,.3s border-color;
+  }
+  .chart-card{ grid-column:1 / -1; }
+  h2{ margin-top:0; }
+  h3{ color:var(--grey); font-weight:normal; margin-bottom:5px; }
+  .health-score-container{ text-align:center; }
+  .health-score-circle{ position:relative; width:180px; height:180px; margin:0 auto; }
+  .health-score-circle svg{ width:100%; height:100%; transform:rotate(-90deg); }
+  .health-score-circle .bg{ fill:none; stroke:var(--border-color); stroke-width:15; }
+  .health-score-circle .progress{ fill:none; stroke:var(--green); stroke-width:15; stroke-linecap:round; transition:.5s stroke-dashoffset,.5s stroke; }
+  .health-score-text{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:3em; font-weight:bold; }
+  .health-score-label{ margin-top:15px; color:var(--grey); font-size:1.1em; }
+  /* Cercuri Health pe motoare individuale */
+  .health-circle {position: relative;display: inline-block;}
+  .health-circle svg {width: 100%;height: 100%;display: block;}
+  .health-percent {position: absolute;top: 50%;left: 50%;transform: translate(-50%, -50%);font-size: 1.1em;font-weight: 700;color: var(--text-color);pointer-events: none;text-shadow: 0 0 4px rgba(0,0,0,0.4);}
+  .health-status {margin-top: 8px;font-size: 0.9em;color: var(--grey);}
+  .stats-grid{ display:grid; grid-template-columns:auto 1fr; gap:8px 15px; text-align:left; font-size:.9em; align-items:center; }
+  .stats-grid strong{ color:var(--text-color); font-size:1.1em; justify-self:end; font-weight:bold; transition:.3s color; }
+  .control-block{ margin-bottom:20px; }
+  .control-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .motor-title{ font-size:1.2em; font-weight:bold; }
+  .status-badge{ padding:5px 10px; border-radius:12px; color:white; font-size:.9em; }
+  .status-badge.on{ background:var(--green); }
+  .status-badge.off{ background:var(--red); }
+  .btn{ padding:12px; border:none; border-radius:8px; color:white; font-size:1em; cursor:pointer; width:100%; margin-top:10px; transition:.3s background-color; }
+  .btn-toggle{ background:var(--accent-color); }
+  .btn-estop{background: var(--red);font-weight: bold;font-size: 1.1em; margin-top: 12px;max-width: 260px; margin-left: auto; margin-right: 0;}
+  .alerts-list{ list-style:none; padding:0; margin-top:15px; height:120px; overflow-y:auto; background:var(--bg-color); border-radius:8px; padding:10px; border:1px solid var(--border-color); }
+  .alerts-list li{ padding:8px; border-bottom:1px solid var(--border-color); font-size:.9em; text-align:left; }
+  .alert-warn{ color:var(--yellow); }
+  .alert-crit{ color:var(--red); font-weight:bold; }
+  .profile-buttons{ display:flex; gap:10px; justify-content:center; margin-top:15px; }
+  .btn-profile{ background:#4A5568; }
+  .btn-profile.active{ background:var(--accent-color); font-weight:bold; box-shadow:0 0 10px var(--accent-color); }
+  #profileDescriptionContainer{ margin-top:20px; padding:15px; background:var(--bg-color); border-radius:8px; border:1px solid var(--border-color); min-height:60px; transition:.3s all; }
+  #profileDescriptionText{ margin:0; font-size:.9em; color:var(--grey); line-height:1.4; }
+  .analysis-container{ display:flex; flex-wrap:wrap; gap:25px; }
+  .stats-box,.alerts-box{ flex:1; min-width:280px; }
+  .stats-box h3,.alerts-box h3{ margin-top:0; border-bottom:2px solid var(--accent-color); padding-bottom:10px; margin-bottom:15px; color:var(--grey); font-size:1.1em;}
+  .page-content{ display:none; animation:.5s fadeIn; }
+  .page-content.active-page{ display:block; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+  .stat-highlight{ font-size:2.5em; color:var(--accent-color); font-weight:bold; margin:10px 0 0 0; }
+  .setting-item{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; }
+  .switch{ position:relative; display:inline-block; width:60px; height:34px; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#ccc; transition:.4s; }
+  .slider:before{ position:absolute; content:""; height:26px; width:26px; left:4px; bottom:4px; background:#fff; transition:.4s; }
+  input:checked + .slider{ background:var(--accent-color); }
+  input:checked + .slider:before{ transform:translateX(26px); }
+  .slider.round{ border-radius:34px; }
+  .slider.round:before{ border-radius:50%; }
+  #toast-container{ position:fixed; top:20px; right:20px; z-index:1000; display:flex; flex-direction:column; gap:10px; }
+  .toast{ background:var(--card-color); color:var(--text-color); padding:15px 20px; border-radius:8px; border-left:5px solid var(--accent-color); box-shadow:0 4px 12px rgba(0,0,0,.2); opacity:0; transform:translateX(100%); animation:slideIn .5s forwards,fadeOut .5s 3.5s forwards; }
+  .toast.success{ border-left-color:var(--green); }
+  .toast.warning{ border-left-color:var(--yellow); }
+  .toast.error{ border-left-color:var(--red); }
+  @keyframes slideIn{ to{ opacity:1; transform:translateX(0); } }
+  @keyframes fadeOut{ from{ opacity:1; transform:translateX(0);} to{ opacity:0; transform:translateX(100%);} }
+  .tooltip-container{ position:relative; display:inline-block; border-bottom:1px dotted var(--grey); cursor:help; }
+  .tooltip-text{ visibility:hidden; width:220px; background:var(--sidebar-color); color:var(--text-color); text-align:center; border-radius:6px; padding:10px; position:absolute; z-index:1; bottom:125%; left:50%; margin-left:-110px; opacity:0; transition:.3s opacity; }
+  .tooltip-container:hover .tooltip-text{ visibility:visible; opacity:1; }
