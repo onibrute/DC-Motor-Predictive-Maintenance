@@ -20,7 +20,7 @@ static bool mpu1_found = false;
 static bool mpu2_found = false;
 
 // -------- Offsets (din calibrare) --------
-// 1 g ≈ 16384 LSB; 1 g ≈ 9.81 m/s^2 [web:3][web:4]
+// 1 g ≈ 16384 LSB; 1 g ≈ 9.81 m/s^2 
 constexpr float LSB_PER_G = 16384.0f;
 constexpr float G_MS2     = 9.81f;
 
@@ -37,15 +37,43 @@ constexpr float AZ2_OFF_MS2 =   727.05f / LSB_PER_G * G_MS2;
 // ================= INIT ==================
 
 bool sensors_init() {
-  // Bus 1: 21/22 (config.h)
+  Serial.println("[SENS] === sensors_init START ===");
+
+  // Bus 1: 21/22
   I2C_1.begin(I2C_SDA, I2C_SCL);
   I2C_1.setClock(400000);
 
   // Bus 2: 18/19
   I2C_2.begin(I2C2_SDA, I2C2_SCL);
-  I2C_2.setClock(400000);
+  I2C_2.setClock(100000);   // lasam clar pe 100 kHz ca la sketch
 
-  // --- MPU1 pe 21/22, adresa 0x69 ---
+  // Scan rapid pe I2C_2 ca in sketch-ul de test
+  Serial.println("[SENS] Scan pe I2C_2 (18/19) in sensors_init:");
+  for (uint8_t addr = 1; addr < 127; addr++) {
+    I2C_2.beginTransmission(addr);
+    uint8_t err = I2C_2.endTransmission();
+    if (err == 0) {
+      Serial.print("  Gasit la 0x");
+      Serial.println(addr, HEX);
+    }
+  }
+
+  // Citire directa WHO_AM_I de la 0x68 pe busul 2
+  Serial.println("[SENS] Citire directa WHO_AM_I de la 0x68 pe I2C_2...");
+  I2C_2.beginTransmission(0x68);
+  I2C_2.write(0x75);  // registrul WHO_AM_I
+  uint8_t err = I2C_2.endTransmission(false); // fara STOP, urmeaza read
+  uint8_t who = 0;
+  if (err == 0) {
+    I2C_2.requestFrom((uint8_t)0x68, (uint8_t)1);
+    if (I2C_2.available()) {
+      who = I2C_2.read();
+    }
+  }
+  Serial.print("[SENS] WHO_AM_I brut = 0x");
+  Serial.println(who, HEX);
+
+  // --- MPU1 pe 21/22, 0x69 ---
   if (mpu1.begin(0x69, &I2C_1)) {
     mpu1_found = true;
     mpu1.setAccelerometerRange(MPU6050_RANGE_2_G);
@@ -56,8 +84,15 @@ bool sensors_init() {
     Serial.println("[SENS] MPU1 (21/22,0x69) ERROR!");
   }
 
-  // --- MPU2 pe 18/19, adresa 0x68 ---
-  if (mpu2.begin(0x68, &I2C_2)) {
+  delay(500);  // dam timp mare inainte de MPU2
+
+  // --- MPU2 pe 18/19, 0x68 ---
+  Serial.println("[SENS] Incerc init Adafruit_MPU6050 pe 0x68 (I2C_2)...");
+  bool ok2 = mpu2.begin(0x68, &I2C_2);
+  Serial.print("[SENS] mpu2.begin() => ");
+  Serial.println(ok2 ? "TRUE" : "FALSE");
+
+  if (ok2) {
     mpu2_found = true;
     mpu2.setAccelerometerRange(MPU6050_RANGE_2_G);
     mpu2.setGyroRange(MPU6050_RANGE_250_DEG);
@@ -67,8 +102,17 @@ bool sensors_init() {
     Serial.println("[SENS] MPU2 (18/19,0x68) NOT FOUND");
   }
 
+  Serial.print("[SENS] Final: mpu1_found=");
+  Serial.print(mpu1_found);
+  Serial.print(", mpu2_found=");
+  Serial.println(mpu2_found);
+  Serial.println("[SENS] === sensors_init END ===");
+
   return mpu1_found || mpu2_found;
 }
+
+
+
 
 // ========== FILL FRAME (FFT + RMS pt. AMBELE) ==========
 

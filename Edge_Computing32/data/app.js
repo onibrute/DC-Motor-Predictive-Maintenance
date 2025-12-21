@@ -6,15 +6,21 @@ let maxRms = 0, totalAlerts = 0;
 let fftMode = 'compare'; // 'm1', 'm2', 'compare'
 let websocket;
 
-// Pentru statistici RMS și istoric
-let rmsHistory = [];           // buffer pentru ultimele valori RMS (M1)
-let maxHistoricalPoints = 50;  // puncte maxime în graficul istoric
-window.startTime = Date.now(); // momentul pornirii pentru calcul timp funcționare
+// Variabile pentru sincronizare UI (Debounce/Cooldown)
+let lastCmdTimeM1 = 0; 
+let lastCmdTimeM2 = 0; 
+const CMD_TIMEOUT = 1500; // Ignorăm datele de la server 1.5s după o comandă manuală
+
+// Statistici RMS și istoric
+let rmsHistory = [];   
+let rmsHistory2 = [];  
+let maxHistoricalPoints = 50;
+window.startTime = Date.now(); 
 
 // Chart Globals
 let fftChart, historicalChart;
 
-// Toggle statistici (Motor 1 / Motor 2 / Compară)
+// Toggle statistici
 let statsMode = 'm1';
 let btnStatsM1, btnStatsM2, btnStatsCompare;
 
@@ -25,6 +31,153 @@ let btnFftM1, btnFftM2, btnFftCompare;
 
 // Circumference for Health Circle
 let circumference;
+
+// ===== INTERNATIONALIZATION (i18n) =====
+let currentLang = 'ro';
+let currentProfileId = -1; 
+
+const translations = {
+  ro: {
+    header_title: "Panou de control",
+    footer_conn: "Conectare...",
+    footer_updated: "Actualizat:",
+    dash_title: "Sistem de diagnoză", 
+    health_title: "Stare tehnică",
+    motor1: "Motor 1",
+    motor2: "Motor 2",
+    health_stable: "În parametri",
+    health_warning: "Uzură detectată",
+    health_critical: "Defecțiune",
+    control_title: "Control motoare",
+    status_on: "Pornit",
+    status_off: "Oprit",
+    speed_txt: "Viteza",
+    btn_m1_toggle: "Start/stop motor 1",
+    btn_m2_toggle: "Start/stop motor 2",
+    speed_m1: "Viteză motor 1:",
+    speed_m2: "Viteză motor 2:",
+    profile_title: "Profil operare",
+    prof_normal: "Normal",
+    prof_eco: "Economic",
+    prof_sync: "Sincron",
+    prof_select: "Selectați un profil.",
+    prof_desc_normal: "<strong>Normal:</strong> Motoarele funcționează la viteza setată manual, fără restricții.",
+    prof_desc_eco: "<strong>Economic:</strong> Viteza este limitată la 60% pentru a economisi energie.",
+    prof_desc_sync: "<strong>Sincron:</strong> Motorul 2 pornește automat la 3 secunde după motorul 1.",
+    vib_analysis_title: "Analiză vibrații",
+    key_stats: "Statistici cheie (RMS)",
+    compare: "Compară",
+    metric_rms: "Valoare curentă",
+    desc_rms: "RMS (Root Mean Square) indică energia totală a vibrației.",
+    metric_peak: "Peak (vârf)",
+    desc_peak: "Valoarea maximă înregistrată.",
+    metric_crest: "Factor creastă",
+    desc_crest: "Raportul dintre Vârf (Peak) și RMS.",
+    metric_freq: "Frecvență dominantă",
+    desc_freq: "Frecvența cu amplitudine maximă.",
+    metric_trend: "Trend general:",
+    trend_up: "📈 Creștere",
+    trend_down: "📉 Scădere",
+    trend_flat: "➡️ Stabil",
+    table_metric: "Metrică",
+    alerts_history: "Istoric alerte",
+    sys_start: "Sistem pornit...",
+    btn_estop: "Oprire de urgență",
+    alert_warn_msg: "Avertisment vibrații",
+    alert_crit_msg: "Alarmă critică",
+    alert_norm_msg: "Sistem normal.",
+    fft_title: "Spectrogramă vibrații (FFT)",
+    compare_full: "Compară (ambele)",
+    page_analysis_title: "Analiză istorică",
+    card_max_rms: "Max RMS",
+    card_total_alerts: "Total alerte",
+    card_runtime: "Timp funcționare",
+    card_history_title: "Istoric medie RMS",
+    page_motors_title: "Detalii motoare",
+    card_det_m1: "Detalii motor 1",
+    card_det_m2: "Detalii motor 2",
+    det_status: "Stare:",
+    det_speed: "Viteză curentă:",
+    det_runtime: "Timp funcționare:",
+    det_cycles: "Cicluri pornire:",
+    page_settings_title: "Setări sistem",
+    card_esp_title: "Setări ESP32",
+    card_esp_desc: "Configurare parametri rețea și limite.",
+    btn_esp_access: "Acces setări dispozitiv",
+    card_ui_title: "Setări interfață",
+    lbl_theme: "Temă vizuală"
+  },
+  en: {
+    header_title: "Control panel",
+    footer_conn: "Connecting...",
+    footer_updated: "Updated:",
+    dash_title: "Diagnostic system",
+    health_title: "Technical condition",
+    motor1: "Motor 1",
+    motor2: "Motor 2",
+    health_stable: "Optimal",
+    health_warning: "Warning",
+    health_critical: "Critical failure",
+    control_title: "Motor control",
+    status_on: "On",
+    status_off: "Off",
+    speed_txt: "Speed",
+    btn_m1_toggle: "Start/stop motor 1",
+    btn_m2_toggle: "Start/stop motor 2",
+    speed_m1: "Motor 1 speed:",
+    speed_m2: "Motor 2 speed:",
+    profile_title: "Operation profile",
+    prof_normal: "Normal",
+    prof_eco: "Eco",
+    prof_sync: "Sync",
+    prof_select: "Select a profile.",
+    prof_desc_normal: "<strong>Normal:</strong> Motors run at manually set speed without restrictions.",
+    prof_desc_eco: "<strong>Eco:</strong> Speed is limited to 60% to save energy.",
+    prof_desc_sync: "<strong>Sync:</strong> Motor 2 starts automatically 3 seconds after motor 1.",
+    vib_analysis_title: "Vibration analysis",
+    key_stats: "Key statistics (RMS)",
+    compare: "Compare",
+    metric_rms: "Current value",
+    desc_rms: "RMS (Root Mean Square) indicates total vibration energy.",
+    metric_peak: "Peak",
+    desc_peak: "Maximum recorded value.",
+    metric_crest: "Crest factor",
+    desc_crest: "Ratio between Peak and RMS.",
+    metric_freq: "Dominant freq",
+    desc_freq: "Frequency with maximum amplitude.",
+    metric_trend: "General trend:",
+    trend_up: "📈 Rising",
+    trend_down: "📉 Falling",
+    trend_flat: "➡️ Stable",
+    table_metric: "Metric",
+    alerts_history: "Alert history",
+    sys_start: "System started...",
+    btn_estop: "Emergency stop",
+    alert_warn_msg: "Vibration warning",
+    alert_crit_msg: "Critical alarm",
+    alert_norm_msg: "System normal.",
+    fft_title: "Vibration spectrogram (FFT)",
+    compare_full: "Compare (both)",
+    page_analysis_title: "Historical analysis",
+    card_max_rms: "Max RMS",
+    card_total_alerts: "Total alerts",
+    card_runtime: "Runtime",
+    card_history_title: "RMS history avg",
+    page_motors_title: "Motor details",
+    card_det_m1: "Motor 1 details",
+    card_det_m2: "Motor 2 details",
+    det_status: "Status:",
+    det_speed: "Current speed:",
+    det_runtime: "Runtime:",
+    det_cycles: "Start cycles:",
+    page_settings_title: "System settings",
+    card_esp_title: "ESP32 settings",
+    card_esp_desc: "Network configuration and limits.",
+    btn_esp_access: "Device settings access",
+    card_ui_title: "Interface settings",
+    lbl_theme: "Visual theme"
+  }
+};
 
 // ===== STARTUP LOGIC =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -53,15 +206,66 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Initialize Charts
     initCharts();
 
-    // 4. Setup Event Listeners
-    if(document.getElementById('btnM1')) document.getElementById('btnM1').onclick = () => sendCmd({ cmd: 'toggleM1' });
-    if(document.getElementById('btnM2')) document.getElementById('btnM2').onclick = () => sendCmd({ cmd: 'toggleM2' });
+    // 4. Setup Event Listeners (ACTUALIZAT PENTRU SINCRONIZARE & UI FIX)
     
+    // --- MOTOR 1 TOGGLE ---
+    if(document.getElementById('btnM1')) {
+        document.getElementById('btnM1').onclick = () => {
+            // 1. Setăm timpul comenzii pentru a bloca telemetria
+            lastCmdTimeM1 = Date.now();
+            
+            // 2. Trimitem comanda
+            sendCmd({ cmd: 'toggleM1' });
+            
+            // 3. OPTIMISTIC UI: Schimbăm starea vizuală IMEDIAT
+            const badge = document.getElementById('m1_status');
+            const isCurrentlyOn = badge.classList.contains('on');
+            const newState = !isCurrentlyOn;
+
+            updateStatusBadge('m1_status', newState); 
+            
+            // Dacă oprim motorul, forțăm și viteza la 0 vizual imediat
+            if (!newState) {
+                if(document.getElementById('m1_speed')) document.getElementById('m1_speed').textContent = "0";
+                if(sliderM1) sliderM1.value = 0;
+                if(sliderM1Value) sliderM1Value.textContent = "0";
+            }
+        };
+    }
+
+    // --- MOTOR 2 TOGGLE ---
+    if(document.getElementById('btnM2')) {
+        document.getElementById('btnM2').onclick = () => {
+            lastCmdTimeM2 = Date.now(); // BLOCĂM telemetria pt M2
+            
+            sendCmd({ cmd: 'toggleM2' });
+            
+            const badge = document.getElementById('m2_status');
+            const isCurrentlyOn = badge.classList.contains('on');
+            const newState = !isCurrentlyOn;
+
+            updateStatusBadge('m2_status', newState);
+
+            if (!newState) {
+                if(document.getElementById('m2_speed')) document.getElementById('m2_speed').textContent = "0";
+                if(sliderM2) sliderM2.value = 0;
+                if(sliderM2Value) sliderM2Value.textContent = "0";
+            }
+        };
+    }
+    
+    // --- ESTOP (URGENȚĂ) ---
     if(document.getElementById('btnEstop')) {
         document.getElementById('btnEstop').onclick = () => {
+            lastCmdTimeM1 = Date.now();
+            lastCmdTimeM2 = Date.now();
+            
             sendCmd({ cmd: 'ESTOP' });
-            addAlert("OPRIRE DE URGENȚĂ ACTIVATĂ", 'crit');
-            showToast('OPRIRE DE URGENȚĂ ACTIVATĂ', 'error');
+            addAlert(translations[currentLang].btn_estop, 'crit');
+            showToast(translations[currentLang].btn_estop, 'error');
+            
+            // FORȚĂM RESETAREA VIZUALĂ IMEDIATĂ (Viteza 0, Status OFF)
+            forceStopUI();
         };
     }
 
@@ -70,17 +274,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if(document.getElementById('btnProfileEconomy')) document.getElementById('btnProfileEconomy').onclick = () => { sendCmd({ cmd: 'set_profile', val: 1 }); updateProfileDesc(1); };
     if(document.getElementById('btnProfileSync'))    document.getElementById('btnProfileSync').onclick    = () => { sendCmd({ cmd: 'set_profile', val: 2 }); updateProfileDesc(2); };
 
-    // Slider Logic
+    // Slider Logic (Actualizat cu Debounce)
     if (sliderM1) {
-        sliderM1.addEventListener("input", () => { if(sliderM1Value) sliderM1Value.textContent = sliderM1.value; });
+        sliderM1.addEventListener("input", () => { 
+            lastCmdTimeM1 = Date.now(); // Blocăm serverul în timp ce tragem
+            if(sliderM1Value) sliderM1Value.textContent = sliderM1.value; 
+        });
         sliderM1.addEventListener("change", () => {
+            lastCmdTimeM1 = Date.now(); 
             sendCmd({ cmd: "set_m1_speed", val: parseInt(sliderM1.value) });
         });
     }
 
     if (sliderM2) {
-        sliderM2.addEventListener("input", () => { if(sliderM2Value) sliderM2Value.textContent = sliderM2.value; });
+        sliderM2.addEventListener("input", () => { 
+            lastCmdTimeM2 = Date.now();
+            if(sliderM2Value) sliderM2Value.textContent = sliderM2.value; 
+        });
         sliderM2.addEventListener("change", () => {
+            lastCmdTimeM2 = Date.now();
             sendCmd({ cmd: "set_m2_speed", val: parseInt(sliderM2.value) });
         });
     }
@@ -90,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(btnFftM2) btnFftM2.onclick = () => { fftMode = 'm2'; updateFftVisibility(); };
     if(btnFftCompare) btnFftCompare.onclick = () => { fftMode = 'compare'; updateFftVisibility(); };
 
-    // Stats Controls (Motor 1 / Motor 2 / Compară)
+    // Stats Controls
     btnStatsM1 = document.getElementById('btnStatsM1');
     btnStatsM2 = document.getElementById('btnStatsM2');
     btnStatsCompare = document.getElementById('btnStatsCompare');
@@ -99,42 +311,75 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnStatsM2) btnStatsM2.onclick = () => { statsMode = 'm2'; updateStatsVisibility(); };
     if (btnStatsCompare) btnStatsCompare.onclick = () => { statsMode = 'compare'; updateStatsVisibility(); };
 
-    // inițial arătăm Motor 1
     updateStatsVisibility();
 
     // Navigation & Theme
     setupNavAndTheme();
-
-    function updateStatsVisibility() {
-        const c1 = document.getElementById('stats-motor-1');
-        const c2 = document.getElementById('stats-motor-2');
-        const cc = document.getElementById('stats-compare');
-
-        if (c1) c1.style.display = 'none';
-        if (c2) c2.style.display = 'none';
-        if (cc) cc.style.display = 'none';
-
-        if (btnStatsM1) btnStatsM1.classList.remove('active');
-        if (btnStatsM2) btnStatsM2.classList.remove('active');
-        if (btnStatsCompare) btnStatsCompare.classList.remove('active');
-
-        if (statsMode === 'm1') {
-            if (c1) c1.style.display = 'block';
-            if (btnStatsM1) btnStatsM1.classList.add('active');
-        } else if (statsMode === 'm2') {
-            if (c2) c2.style.display = 'block';
-            if (btnStatsM2) btnStatsM2.classList.add('active');
-        } else { // compare
-            if (cc) cc.style.display = 'block';
-            if (btnStatsCompare) btnStatsCompare.classList.add('active');
-        }
-        }
+    
+    // Initialize Language (Default RO)
+    window.setLanguage('ro');
 
     // 5. Start Connection
     initWebSocket();
 });
 
 // ===== Helper Functions =====
+
+// --- FORCE STOP UI (NOU) ---
+function forceStopUI() {
+    // Setăm etichetele pe OPRIT
+    updateStatusBadge('m1_status', false);
+    updateStatusBadge('m2_status', false);
+
+    // Setăm textul vitezei pe 0
+    if (document.getElementById('m1_speed')) document.getElementById('m1_speed').textContent = "0";
+    if (document.getElementById('m2_speed')) document.getElementById('m2_speed').textContent = "0";
+
+    // Resetăm Sliderele
+    if (document.getElementById('sliderM1')) document.getElementById('sliderM1').value = 0;
+    if (document.getElementById('sliderM2')) document.getElementById('sliderM2').value = 0;
+    if (document.getElementById('sliderM1Value')) document.getElementById('sliderM1Value').textContent = "0";
+    if (document.getElementById('sliderM2Value')) document.getElementById('sliderM2Value').textContent = "0";
+    
+    // Opțional: Resetăm și detaliile din pagina Motors
+    if(document.getElementById('motor-detail-speed-1')) document.getElementById('motor-detail-speed-1').textContent = "0";
+    if(document.getElementById('motor-detail-speed-2')) document.getElementById('motor-detail-speed-2').textContent = "0";
+}
+
+// --- LANGUAGE SWITCHER ---
+window.setLanguage = function(lang) {
+    if (!translations[lang]) return;
+    currentLang = lang;
+
+    // Update static elements
+    document.querySelectorAll('[data-lang]').forEach(el => {
+        const key = el.getAttribute('data-lang');
+        if (translations[lang][key]) {
+            if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
+            el.innerHTML = translations[lang][key]; 
+        }
+    });
+
+    // Highlight vizual steaguri
+    document.querySelectorAll('.btn-lang').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById(`lang-btn-${lang}`);
+    if(activeBtn) activeBtn.classList.add('active');
+
+    // Refresh Dynamic Components
+    updateProfileDesc(currentProfileId); 
+    
+    if (fftChart) {
+        fftChart.data.datasets[0].label = translations[lang].motor1;
+        fftChart.data.datasets[1].label = translations[lang].motor2;
+        fftChart.update();
+    }
+    
+    if (historicalChart) {
+        historicalChart.data.datasets[0].label = "RMS (" + translations[lang].motor1 + ")";
+        historicalChart.data.datasets[1].label = "RMS (" + translations[lang].motor2 + ")";
+        historicalChart.update();
+    }
+};
 
 function sendCmd(json) {
     if (websocket && websocket.readyState === WebSocket.OPEN) {
@@ -143,25 +388,28 @@ function sendCmd(json) {
 }
 
 function updateProfileDesc(profileId) {
+    currentProfileId = profileId; // Save for lang switch
     const descEl = document.getElementById('profileDescriptionText');
     const btns = document.querySelectorAll('.btn-profile');
     btns.forEach(b => b.classList.remove('active'));
 
     let text = "";
     if (profileId === 0) {
-        text = "<strong>Normal:</strong> Motoarele funcționează la viteza setată manual, fără restricții.";
+        text = translations[currentLang].prof_desc_normal;
         document.getElementById('btnProfileNormal')?.classList.add('active');
     } else if (profileId === 1) {
-        text = "<strong>Economic:</strong> Viteza este limitată la 60% pentru a economisi energie și a reduce uzura.";
+        text = translations[currentLang].prof_desc_eco;
         document.getElementById('btnProfileEconomy')?.classList.add('active');
     } else if (profileId === 2) {
-        text = "<strong>Sincron:</strong> Motorul 2 pornește automat la 3 secunde după Motorul 1 pentru a reduce vârful de curent.";
+        text = translations[currentLang].prof_desc_sync;
         document.getElementById('btnProfileSync')?.classList.add('active');
+    } else {
+        text = translations[currentLang].prof_select;
     }
     
     if(descEl) descEl.innerHTML = text;
 }
-// Health per motor (cercurile noi)
+
 function setHealthMotor(motorId, health) {
   const circleId = `health-circle-m${motorId}`;
   const percentId = `health-percent-m${motorId}`;
@@ -181,17 +429,42 @@ function setHealthMotor(motorId, health) {
   
   if (clamped >= 80) {
     circle.style.stroke = baseColor;
-    status.textContent = 'Sănătos';
+    status.textContent = translations[currentLang].health_stable;
     status.style.color = baseColor;
   } else if (clamped >= 50) {
     circle.style.stroke = '#FFC107';
-    status.textContent = 'Atenție';
+    status.textContent = translations[currentLang].health_warning;
     status.style.color = '#FFC107';
   } else {
     circle.style.stroke = '#F44336';
-    status.textContent = 'Critic';
+    status.textContent = translations[currentLang].health_critical;
     status.style.color = '#F44336';
   }
+}
+
+function updateStatsVisibility() {
+    const c1 = document.getElementById('stats-motor-1');
+    const c2 = document.getElementById('stats-motor-2');
+    const cc = document.getElementById('stats-compare');
+
+    if (c1) c1.style.display = 'none';
+    if (c2) c2.style.display = 'none';
+    if (cc) cc.style.display = 'none';
+
+    if (btnStatsM1) btnStatsM1.classList.remove('active');
+    if (btnStatsM2) btnStatsM2.classList.remove('active');
+    if (btnStatsCompare) btnStatsCompare.classList.remove('active');
+
+    if (statsMode === 'm1') {
+        if (c1) c1.style.display = 'block';
+        if (btnStatsM1) btnStatsM1.classList.add('active');
+    } else if (statsMode === 'm2') {
+        if (c2) c2.style.display = 'block';
+        if (btnStatsM2) btnStatsM2.classList.add('active');
+    } else { // compare
+        if (cc) cc.style.display = 'block';
+        if (btnStatsCompare) btnStatsCompare.classList.add('active');
+    }
 }
 
 // ===== WebSocket Logic =====
@@ -201,12 +474,11 @@ function initWebSocket() {
   const url = `ws://${wsHost}/ws`;
 
   const statusElem = document.getElementById('connectionStatus');
-  const lastUpdateElem = document.getElementById('lastUpdate');
-
+  
   websocket = new WebSocket(url);
 
   websocket.onopen = () => {
-    if(statusElem) statusElem.innerHTML = '<span style="color: var(--green);">●</span> Conectat';
+    if(statusElem) statusElem.innerHTML = '<span style="color: var(--green);">●</span> ' + (currentLang === 'ro' ? 'Conectat' : 'Connected');
   };
 
   websocket.onmessage = (event) => {
@@ -222,24 +494,33 @@ function initWebSocket() {
     setHealthMotor(1, d.health1 ?? 100);
     setHealthMotor(2, d.health2 ?? 100);
 
-    // --- 2. MOTOR CONTROL CARDS ---
-    updateStatusBadge('m1_status', d.motor1State);
-    updateStatusBadge('m2_status', d.motor2State);
+    // --- 2. MOTOR CONTROL CARDS (ACTUALIZAT CU LOGICA DE TIMEOUT) ---
     
-    if (document.getElementById('m1_speed')) document.getElementById('m1_speed').textContent = m1_spd;
-    if (document.getElementById('m2_speed')) document.getElementById('m2_speed').textContent = m2_spd;
-    if (document.getElementById('m1_rms')) document.getElementById('m1_rms').textContent = rms1.toFixed(2);
-    if (document.getElementById('m2_rms')) document.getElementById('m2_rms').textContent = rms2.toFixed(2);
+    // UPDATE MOTOR 1 (Doar dacă nu am dat o comandă recent)
+    if (Date.now() - lastCmdTimeM1 > CMD_TIMEOUT) {
+        updateStatusBadge('m1_status', d.motor1State);
+        if (document.getElementById('m1_speed')) document.getElementById('m1_speed').textContent = m1_spd;
+        if (document.getElementById('m1_rms')) document.getElementById('m1_rms').textContent = rms1.toFixed(2);
+        
+        // Slider update (evităm conflictul dacă userul nu interacționează)
+        if (sliderM1 && document.activeElement !== sliderM1) {
+            sliderM1.value = m1_spd;
+            if (sliderM1Value) sliderM1Value.textContent = m1_spd;
+        }
+    }
 
-    const sliderM1 = document.getElementById('sliderM1');
-    const sliderM2 = document.getElementById('sliderM2');
-    const sliderM1Value = document.getElementById('sliderM1Value');
-    const sliderM2Value = document.getElementById('sliderM2Value');
-    
-    if (sliderM1 && m1_spd !== undefined) sliderM1.value = m1_spd;
-    if (sliderM2 && m2_spd !== undefined) sliderM2.value = m2_spd;
-    if (sliderM1Value) sliderM1Value.textContent = m1_spd;
-    if (sliderM2Value) sliderM2Value.textContent = m2_spd;
+    // UPDATE MOTOR 2 (Doar dacă nu am dat o comandă recent)
+    if (Date.now() - lastCmdTimeM2 > CMD_TIMEOUT) {
+        updateStatusBadge('m2_status', d.motor2State);
+        if (document.getElementById('m2_speed')) document.getElementById('m2_speed').textContent = m2_spd;
+        if (document.getElementById('m2_rms')) document.getElementById('m2_rms').textContent = rms2.toFixed(2);
+
+        // Slider update
+        if (sliderM2 && document.activeElement !== sliderM2) {
+            sliderM2.value = m2_spd;
+            if (sliderM2Value) sliderM2Value.textContent = m2_spd;
+        }
+    }
 
     // --- 3. STATISTICS MOTOR 1 ---
     if (document.getElementById('stat_rms_current')) document.getElementById('stat_rms_current').textContent = rms1.toFixed(2);
@@ -263,19 +544,14 @@ function initWebSocket() {
     if (document.getElementById('comp-freq-m1')) document.getElementById('comp-freq-m1').textContent = (d.dom_f1 ?? 0).toFixed(1) + ' Hz';
     if (document.getElementById('comp-freq-m2')) document.getElementById('comp-freq-m2').textContent = (d.dom_f2 ?? 0).toFixed(1) + ' Hz';
 
-    // --- 6. RMS ROLLING STATS (pentru stats-grid vechi) ---
+    // --- 6. TREND LOGIC ---
     rmsHistory.push(rms1);
     if (rmsHistory.length > 10) rmsHistory.shift();
-    
-    const avg = rmsHistory.reduce((a, b) => a + b, 0) / rmsHistory.length;
-    const variance = rmsHistory.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / rmsHistory.length;
-    const stddev = Math.sqrt(variance);
-    
-    if (document.getElementById('stat_rms_avg')) document.getElementById('stat_rms_avg').textContent = avg.toFixed(2);
-    if (document.getElementById('stat_rms_stddev')) document.getElementById('stat_rms_stddev').textContent = stddev.toFixed(2);
-    if (document.getElementById('stat_crest_factor')) document.getElementById('stat_crest_factor').textContent = (d.crest1 ?? 0).toFixed(2);
 
-    // Trend
+    rmsHistory2.push(rms2);
+    if (rmsHistory2.length > 10) rmsHistory2.shift();
+
+    // Trend M1
     if (rmsHistory.length >= 5) {
         const recent = rmsHistory.slice(-5);
         const older = rmsHistory.slice(0, 5);
@@ -283,16 +559,32 @@ function initWebSocket() {
         const olderAvg = older.reduce((a, b) => a + b, 0) / older.length;
         const trendElem = document.getElementById('stat_trend');
         if (trendElem) {
-        if (recentAvg > olderAvg + 0.5) trendElem.textContent = '📈 Creștere';
-        else if (recentAvg < olderAvg - 0.5) trendElem.textContent = '📉 Scădere';
-        else trendElem.textContent = '➡️ Stabil';
+            if (recentAvg > olderAvg + 0.5) trendElem.textContent = translations[currentLang].trend_up;
+            else if (recentAvg < olderAvg - 0.5) trendElem.textContent = translations[currentLang].trend_down;
+            else trendElem.textContent = translations[currentLang].trend_flat;
+        }
+    }
+
+    // Trend M2
+    if (rmsHistory2.length >= 5) {
+        const recent2 = rmsHistory2.slice(-5);
+        const older2 = rmsHistory2.slice(0, 5);
+        const recentAvg2 = recent2.reduce((a, b) => a + b, 0) / recent2.length;
+        const olderAvg2 = older2.reduce((a, b) => a + b, 0) / older2.length;
+        const trendElem2 = document.getElementById('stat_trend_m2');
+        if (trendElem2) {
+            if (recentAvg2 > olderAvg2 + 0.5) trendElem2.textContent = translations[currentLang].trend_up;
+            else if (recentAvg2 < olderAvg2 - 0.5) trendElem2.textContent = translations[currentLang].trend_down;
+            else trendElem2.textContent = translations[currentLang].trend_flat;
         }
     }
 
     // --- 7. PROFILE ---
-    if (d.profile !== undefined) updateProfileDesc(d.profile);
+    if (d.profile !== undefined && d.profile !== currentProfileId) {
+        updateProfileDesc(d.profile);
+    }
 
-    // --- 8. LAST UPDATE TIMESTAMP ---
+    // --- 8. LAST UPDATE ---
     const lastUpdateElem = document.getElementById('lastUpdate');
     if (lastUpdateElem) lastUpdateElem.textContent = new Date().toLocaleTimeString();
 
@@ -303,7 +595,7 @@ function initWebSocket() {
         fftChart.update('none');
     }
 
-    // --- 10. HISTORICAL DATA (RMS TREND) ---
+    // --- 10. HISTORICAL ---
     const timestamp = new Date().toLocaleTimeString();
     historicalData.push({ x: timestamp, y1: rms1, y2: rms2 });
     if (historicalData.length > maxHistoricalPoints) historicalData.shift();
@@ -333,16 +625,13 @@ function initWebSocket() {
         totalRuntimeElem.textContent = `${hours}h ${minutes}m ${seconds}s`;
     }
 
-    // --- 12. MOTORS PAGE UPDATE ---
+    // --- 12. UPDATE PAGES ---
     updateMotorsPage(d);
-
-    // --- 13. ALERTS ---
     updateAlerts(d);
-    };
-
+  };
 
   websocket.onclose = () => {
-    if(statusElem) statusElem.innerHTML = '<span style="color: var(--red);">●</span> Deconectat. Reconectare...';
+    if(statusElem) statusElem.innerHTML = '<span style="color: var(--red);">●</span> Disconnected';
     setTimeout(initWebSocket, 2000);
   };
 }
@@ -350,32 +639,70 @@ function initWebSocket() {
 function updateStatusBadge(id, isOn) {
     const elem = document.getElementById(id);
     if (!elem) return;
-    if (isOn) { elem.textContent = "PORNIT"; elem.classList.remove("off"); elem.classList.add("on"); } 
-    else { elem.textContent = "OPRIT"; elem.classList.remove("on"); elem.classList.add("off"); }
+    if (isOn) { 
+        elem.textContent = translations[currentLang].status_on; 
+        elem.classList.remove("off"); elem.classList.add("on"); 
+    } else { 
+        elem.textContent = translations[currentLang].status_off; 
+        elem.classList.remove("on"); elem.classList.add("off"); 
+    }
 }
 
 function updateMotorsPage(d) {
     ['1','2'].forEach(i => {
       const isOn = (i === '1') ? d.motor1State : d.motor2State;
       const stEl = document.getElementById(`motor-detail-status-${i}`);
-      if(stEl) stEl.textContent = isOn ? 'PORNIT' : 'OPRIT';
+      if(stEl) stEl.textContent = isOn ? translations[currentLang].status_on : translations[currentLang].status_off;
       
       const spEl = document.getElementById(`motor-detail-speed-${i}`);
       if(spEl) spEl.textContent = d[`m${i}_speed`] ?? 0;
     });
 }
 
+function addAlert(msg, type) {
+    totalAlerts++;
+    const li = document.createElement('li');
+    li.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    if (type === 'crit') li.style.color = '#ff4444';
+    else if (type === 'warn') li.style.color = '#ffbb33';
+    
+    if (alertsList) {
+        alertsList.prepend(li);
+        if (alertsList.children.length > 5) alertsList.lastChild.remove();
+    }
+}
+
+function showToast(msg, type) {
+    const container = document.getElementById('toast-container');
+    if(!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 3000);
+}
+
 function updateAlerts(d) {
   document.body.style.setProperty('--alert-bg', null);
+  
   if (d.alertState === 1) {
-    if (lastAlertState !== 1) { addAlert(`Avertisment Vibrații`, 'warn'); showToast(`Vibrații Ridicate`, 'warning'); }
+    if (lastAlertState !== 1) { 
+        addAlert(translations[currentLang].alert_warn_msg, 'warn'); 
+        showToast(translations[currentLang].alert_warn_msg, 'warning'); 
+    }
     document.body.style.setProperty('--alert-bg', '#2d2d1b');
   } else if (d.alertState === 2) {
-    if (lastAlertState !== 2) { addAlert(`ALARMĂ CRITICĂ`, 'crit'); showToast(`ALARMĂ CRITICĂ`, 'error'); }
+    if (lastAlertState !== 2) { 
+        addAlert(translations[currentLang].alert_crit_msg, 'crit'); 
+        showToast(translations[currentLang].alert_crit_msg, 'error'); 
+    }
     document.body.style.setProperty('--alert-bg', '#3b1f1f');
   } else {
-    if (lastAlertState !== 0 && lastAlertState !== undefined) addAlert('Sistem Normal.', 'info');
+    if (lastAlertState !== 0 && lastAlertState !== undefined) {
+         addAlert(translations[currentLang].alert_norm_msg, 'info');
+    }
   }
+  lastAlertState = d.alertState;
 }
 
 function setupNavAndTheme() {
@@ -448,8 +775,8 @@ function initCharts() {
             data: { 
                 labels: [], 
                 datasets: [
-                    { label: 'RMS (M1)', data: [], borderColor: 'var(--accent-color)', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: false, tension: 0.4 },
-                    { label: 'RMS (M2)', data: [], borderColor: '#FFA500', backgroundColor: 'rgba(255, 165, 0, 0.1)', fill: false, tension: 0.4 }
+                    { label: 'RMS (Motor 1)', data: [], borderColor: 'var(--accent-color)', backgroundColor: 'rgba(76, 175, 80, 0.1)', fill: false, tension: 0.4 },
+                    { label: 'RMS (Motor 2)', data: [], borderColor: '#FFA500', backgroundColor: 'rgba(255, 165, 0, 0.1)', fill: false, tension: 0.4 }
                 ] 
             },
             options: getChartOptions()
@@ -468,18 +795,17 @@ function updateFftVisibility() {
     fftChart.data.datasets[0].hidden = false;
     fftChart.data.datasets[1].hidden = true;
     if(btnFftM1) btnFftM1.classList.add('active');
-    fftChart.options.plugins.legend.display = false;    // doar M1 → fără legendă
+    fftChart.options.plugins.legend.display = false;
   } else if (fftMode === 'm2') {
     fftChart.data.datasets[0].hidden = true;
     fftChart.data.datasets[1].hidden = false;
     if(btnFftM2) btnFftM2.classList.add('active');
-    fftChart.options.plugins.legend.display = false;    // doar M2 → fără legendă
+    fftChart.options.plugins.legend.display = false;
   } else {
     fftChart.data.datasets[0].hidden = false;
     fftChart.data.datasets[1].hidden = false;
     if(btnFftCompare) btnFftCompare.classList.add('active');
-    fftChart.options.plugins.legend.display = true;     // Compară → legendă ON
+    fftChart.options.plugins.legend.display = true;
   }
-
   fftChart.update();
 }

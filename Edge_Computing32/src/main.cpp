@@ -114,8 +114,11 @@ static void netTask(void* pv) {
 }
 void setup() {
   Serial.begin(115200);
-  delay(100);
+  delay(500);
+  Serial.println("=== BUILD NOU PDM ===");
+  Serial.println(__DATE__ " " __TIME__);
 
+  
   mtxMetrics = xSemaphoreCreateMutex();
   mtxFFT     = xSemaphoreCreateMutex();
 
@@ -129,7 +132,7 @@ void setup() {
   // Pornim Task-urile Dual-Core
   xTaskCreatePinnedToCore(sensorTask, "SensTask", 8192, NULL, 2, NULL, 1); // Core 1
   xTaskCreatePinnedToCore(netTask,    "NetTask",  8192, NULL, 1, NULL, 0); // Core 0
-  
+
   Serial.println("System Running.");
 }
 

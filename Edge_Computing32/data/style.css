@@ -38,7 +38,11 @@
   }
   .main-wrapper{ margin-left:80px; width:calc(100% - 80px); display:flex; flex-direction:column; height:100vh; }
   .main-content{ flex-grow:1; padding:20px; overflow-y:auto; }
-  .secondary-header{ padding:15px 20px; background:rgba(45,55,72,.5); backdrop-filter:blur(5px); border-bottom:1px solid var(--border-color); }
+  .secondary-header {display: flex;justify-content: space-between; align-items: center;padding: 10px 20px;background-color: var(--card-color);border-bottom: 1px solid var(--border-color);}
+  .lang-switch {display: flex;gap: 15px;}
+  .btn-lang {background: none;border: none;font-size: 24px;cursor: pointer;opacity: 0.4; filter: grayscale(80%);transition: all 0.3s ease;padding: 0;line-height: 1;}
+  .btn-lang:hover {opacity: 0.8;filter: grayscale(0%);transform: scale(1.1);}
+  .btn-lang.active {opacity: 1;filter: grayscale(0%);transform: scale(1.2);text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);}
   .footer{ padding:10px 20px; background:var(--sidebar-color); font-size:.8em; color:var(--grey); border-top:1px solid var(--border-color); transition:.3s background-color;}
   .sidebar-logo{ font-weight:bold; font-size:1.2em; color:var(--accent-color); margin-bottom:40px;}
   .nav-icon{ margin-bottom:30px; cursor:pointer; padding:10px; border-radius:8px; transition:.3s background-color;}
@@ -78,7 +82,8 @@
   .status-badge.off{ background:var(--red); }
   .btn{ padding:12px; border:none; border-radius:8px; color:white; font-size:1em; cursor:pointer; width:100%; margin-top:10px; transition:.3s background-color; }
   .btn-toggle{ background:var(--accent-color); }
-  .btn-estop{background: var(--red);font-weight: bold;font-size: 1.1em; margin-top: 12px;max-width: 260px; margin-left: auto; margin-right: 0;}
+  .btn-estop{background: var(--red);font-weight: bold;font-size: 1.1em; margin-top: 12px;max-width: 260px; margin-left: auto; margin-right: auto;}
+  .alerts-box .btn-estop{width: auto;max-width: 260px; display: block;margin: 15px auto 0;}
   .alerts-list{ list-style:none; padding:0; margin-top:15px; height:120px; overflow-y:auto; background:var(--bg-color); border-radius:8px; padding:10px; border:1px solid var(--border-color); }
   .alerts-list li{ padding:8px; border-bottom:1px solid var(--border-color); font-size:.9em; text-align:left; }
   .alert-warn{ color:var(--yellow); }

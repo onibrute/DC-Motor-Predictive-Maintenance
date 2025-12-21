@@ -11,12 +11,14 @@
     .btn-chart { background: var(--card-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; }
     .btn-chart:hover { background: var(--sidebar-color); }
     .btn-chart.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+    .lang-switch { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+    .btn-lang { background: transparent; border: 1px solid var(--text-color); color: var(--text-color); padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8em; }
+    .btn-lang:hover { background: var(--accent-color); border-color: var(--accent-color); color: white; }
   </style>
 </head>
 <body>
   <div id="toast-container"></div>
 
-  <!-- Sidebar -->
   <nav class="sidebar">
     <div class="sidebar-logo">PdM</div>
     <div class="nav-icon active" title="Dashboard" data-target="page-dashboard">
@@ -33,190 +35,186 @@
     </div>
   </nav>
 
-  <!-- Main -->
   <div class="main-wrapper">
     <header class="secondary-header">
-      <strong>Panou de Control</strong>
+      <strong data-lang="header_title" style="font-size: 1.2rem;">Panou de control</strong>
+      
+      <div class="lang-switch">
+        <button id="lang-btn-ro" onclick="setLanguage('ro')" class="btn-lang active" title="Română">
+          🇷🇴
+        </button>
+        
+        <button id="lang-btn-en" onclick="setLanguage('en')" class="btn-lang" title="English">
+          🇬🇧
+        </button>
+      </div>
     </header>
 
     <main class="main-content">
-      <!-- Dashboard -->
       <section id="page-dashboard" class="page-content active-page">
         <div class="container">
-          <h1>Mentenanță Predictivă Avansată</h1>
+          <h1 data-lang="dash_title">Sistem de diagnoză</h1>
 
           <div class="grid">
-            <!-- Health Score -->
-            <!-- Stare de Sănătate - DUAL -->
-              <div class="card">
-                <h2>Stare de Sănătate</h2>
-                <div style="display: flex; gap: 20px; justify-content: space-around; align-items: center; flex-wrap: wrap;">
-                  
-                  <!-- Motor 1 Health -->
-                  <div style="flex: 1; min-width: 140px; text-align: center;">
-                    <h3 style="font-size: 0.9em; margin-bottom: 10px; color: var(--accent-color);">Motor 1</h3>
-                    <div class="health-circle" style="width: 120px; height: 120px; margin: 0 auto;">
-                      <svg viewBox="0 0 36 36">
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none" stroke="#444" stroke-width="2.5"/>
-                        <path id="health-circle-m1" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none" stroke="var(--accent-color)" stroke-width="2.5"
-                              stroke-dasharray="100, 100" stroke-linecap="round"/>
-                      </svg>
-                      <div class="health-percent">
-                        <span id="health-percent-m1">100%</span>
-                      </div>
-                    </div>
-                    <p id="health-status-m1" class="health-status">Sistem Stabil</p>
-                  </div>
-
-                  <!-- Motor 2 Health -->
-                  <div style="flex: 1; min-width: 140px; text-align: center;">
-                    <h3 style="font-size: 0.9em; margin-bottom: 10px; color: #FFA500;">Motor 2</h3>
-                    <div class="health-circle" style="width: 120px; height: 120px; margin: 0 auto;">
-                      <svg viewBox="0 0 36 36">
-                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none" stroke="#444" stroke-width="2.5"/>
-                        <path id="health-circle-m2" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                              fill="none" stroke="#FFA500" stroke-width="2.5"
-                              stroke-dasharray="100, 100" stroke-linecap="round"/>
-                      </svg>
-                      <div class="health-percent">
-                        <span id="health-percent-m2">100%</span>
-                      </div>
-                    </div>
-                    <p id="health-status-m2" class="health-status">Sistem Stabil</p>
-                  </div>
-
-                </div>
-              </div>
-
-
-            <!-- Motor Controls -->
             <div class="card">
-              <h2>Control Motoare</h2>
+              <h2 data-lang="health_title">Stare tehnică</h2>
+              <div style="display: flex; gap: 20px; justify-content: space-around; align-items: center; flex-wrap: wrap;">
+                
+                <div style="flex: 1; min-width: 140px; text-align: center;">
+                  <h3 style="font-size: 0.9em; margin-bottom: 10px; color: var(--accent-color);" data-lang="motor1">Motor 1</h3>
+                  <div class="health-circle" style="width: 120px; height: 120px; margin: 0 auto;">
+                    <svg viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#444" stroke-width="2.5"/>
+                      <path id="health-circle-m1" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="var(--accent-color)" stroke-width="2.5"
+                            stroke-dasharray="100, 100" stroke-linecap="round"/>
+                    </svg>
+                    <div class="health-percent">
+                      <span id="health-percent-m1">100%</span>
+                    </div>
+                  </div>
+                  <p id="health-status-m1" class="health-status" data-lang="health_stable">Sistem Stabil</p>
+                </div>
+
+                <div style="flex: 1; min-width: 140px; text-align: center;">
+                  <h3 style="font-size: 0.9em; margin-bottom: 10px; color: #FFA500;" data-lang="motor2">Motor 2</h3>
+                  <div class="health-circle" style="width: 120px; height: 120px; margin: 0 auto;">
+                    <svg viewBox="0 0 36 36">
+                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#444" stroke-width="2.5"/>
+                      <path id="health-circle-m2" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="#FFA500" stroke-width="2.5"
+                            stroke-dasharray="100, 100" stroke-linecap="round"/>
+                    </svg>
+                    <div class="health-percent">
+                      <span id="health-percent-m2">100%</span>
+                    </div>
+                  </div>
+                  <p id="health-status-m2" class="health-status" data-lang="health_stable">Sistem Stabil</p>
+                </div>
+
+              </div>
+            </div>
+
+            <div class="card">
+              <h2 data-lang="control_title">Control Motoare</h2>
               <div class="control-block">
                 <div class="control-header">
-                  <span class="motor-title">Motor 1</span>
-                  <span class="status-badge off" id="m1_status">OFF</span>
+                  <span class="motor-title" data-lang="motor1">Motor 1</span>
+                  <span class="status-badge off" id="m1_status" data-lang="status_off">OPRIT</span>
                 </div>
-                <p>RMS: <span id="m1_rms">0.00</span> | Viteza: <span id="m1_speed">0</span></p>
-                <button class="btn btn-toggle" id="btnM1">Start/Stop Motor 1</button>
+                <p>RMS: <span id="m1_rms">0.00</span> | <span data-lang="speed_txt">Viteza</span>: <span id="m1_speed">0</span></p>
+                <button class="btn btn-toggle" id="btnM1" data-lang="btn_m1_toggle">Start/Stop Motor 1</button>
                 <div class="motor-speed-control">
-                    <label for="sliderM1">Viteză Motor 1: <span id="sliderM1Value">180</span></label>
+                    <label for="sliderM1"><span data-lang="speed_m1">Viteză Motor 1:</span> <span id="sliderM1Value">180</span></label>
                     <input type="range" id="sliderM1" min="0" max="255" value="180" step="1">
                 </div>
               </div>
               <div class="control-block">
                 <div class="control-header">
-                  <span class="motor-title">Motor 2</span>
-                  <span class="status-badge off" id="m2_status">OFF</span>
+                  <span class="motor-title" data-lang="motor2">Motor 2</span>
+                  <span class="status-badge off" id="m2_status" data-lang="status_off">OPRIT</span>
                 </div>
-                <p>RMS: <span id="m2_rms">0.00</span> | Viteza: <span id="m2_speed">0</span></p>
-                <button class="btn btn-toggle" id="btnM2">Start/Stop Motor 2</button>
+                <p>RMS: <span id="m2_rms">0.00</span> | <span data-lang="speed_txt">Viteza</span>: <span id="m2_speed">0</span></p>
+                <button class="btn btn-toggle" id="btnM2" data-lang="btn_m2_toggle">Start/Stop Motor 2</button>
                 <div class="motor-speed-control">
-                    <label for="sliderM2">Viteză Motor 2: <span id="sliderM2Value">180</span></label>
+                    <label for="sliderM2"><span data-lang="speed_m2">Viteză Motor 2:</span> <span id="sliderM2Value">180</span></label>
                     <input type="range" id="sliderM2" min="0" max="255" value="180" step="1">
                 </div>
               </div>
             </div>
 
-            <!-- Profiles -->
             <div class="card">
-              <h2>Profil Operare</h2>
+              <h2 data-lang="profile_title">Profil Operare</h2>
               <div class="profile-buttons">
-                <button class="btn btn-profile" id="btnProfileNormal">Normal</button>
-                <button class="btn btn-profile" id="btnProfileEconomy">Economic</button>
-                <button class="btn btn-profile" id="btnProfileSync">Sincron</button>
+                <button class="btn btn-profile" id="btnProfileNormal" data-lang="prof_normal">Normal</button>
+                <button class="btn btn-profile" id="btnProfileEconomy" data-lang="prof_eco">Economic</button>
+                <button class="btn btn-profile" id="btnProfileSync" data-lang="prof_sync">Sincron</button>
               </div>
               <div id="profileDescriptionContainer">
-                <p id="profileDescriptionText">Selectați un profil.</p>
+                <p id="profileDescriptionText" data-lang="prof_select">Selectați un profil.</p>
               </div>
             </div>
 
-            <!-- Stats & Alerts -->
             <div class="card chart-card">
-              <h2>Analiză Vibrații</h2>
+              <h2 data-lang="vib_analysis_title">Analiză Vibrații</h2>
               <div class="analysis-container">
                 <div class="stats-box">
-                  <h3>Statistici Cheie (RMS)</h3>
+                  <h3 data-lang="key_stats">Statistici Cheie (RMS)</h3>
                   
-                  <!-- ADĂUGAT: Butoane Toggle -->
                   <div style="display: flex; gap: 8px; margin: 10px 0 15px 0; justify-content: center; flex-wrap: wrap;">
-                    <button class="btn-chart active" id="btnStatsM1">Motor 1</button>
-                    <button class="btn-chart" id="btnStatsM2">Motor 2</button>
-                    <button class="btn-chart" id="btnStatsCompare">Compară</button>
+                    <button class="btn-chart active" id="btnStatsM1" data-lang="motor1">Motor 1</button>
+                    <button class="btn-chart" id="btnStatsM2" data-lang="motor2">Motor 2</button>
+                    <button class="btn-chart" id="btnStatsCompare" data-lang="compare">Compară</button>
                   </div>
 
-                  <!-- Container Motor 1 (EXISTENT - doar wrappuit) -->
                   <div id="stats-motor-1" class="stat-content">
                     <div class="stats-grid">
                       <span>
-                        <div class="tooltip-container">Valoare Curentă
-                          <span class="tooltip-text">RMS (Root Mean Square) indică energia totală a vibrației.</span>
+                        <div class="tooltip-container"><span data-lang="metric_rms">Valoare Curentă</span>
+                          <span class="tooltip-text" data-lang="desc_rms">RMS (Root Mean Square) indică energia totală a vibrației.</span>
                         </div>
                       </span><strong id="stat_rms_current">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Peak (Vârf)
-                          <span class="tooltip-text">Valoarea maximă înregistrată.</span>
+                        <div class="tooltip-container"><span data-lang="metric_peak">Peak (Vârf)</span>
+                          <span class="tooltip-text" data-lang="desc_peak">Valoarea maximă înregistrată.</span>
                         </div>
                       </span><strong id="stat-peak-m1">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Factor Creastă
-                          <span class="tooltip-text">Raportul dintre Vârf (Peak) și RMS. Indică șocuri/lovituri în rulmenți.</span>
+                        <div class="tooltip-container"><span data-lang="metric_crest">Factor Creastă</span>
+                          <span class="tooltip-text" data-lang="desc_crest">Raportul dintre Vârf (Peak) și RMS.</span>
                         </div>
                       </span><strong id="stat-crest-m1">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Frecvență Dominantă
-                          <span class="tooltip-text">Frecvența cu amplitudine maximă.</span>
+                        <div class="tooltip-container"><span data-lang="metric_freq">Frecvență Dominantă</span>
+                          <span class="tooltip-text" data-lang="desc_freq">Frecvența cu amplitudine maximă.</span>
                         </div>
                       </span><strong id="stat-freq-m1">0 Hz</strong>
 
                       <span style="grid-column:1/-1;border-top:1px solid var(--border-color);padding-top:10px;margin-top:5px"></span>
-                      <span>Trend General:</span><strong id="stat_trend">Calculare...</strong>
+                      <span data-lang="metric_trend">Trend General:</span><strong id="stat_trend">Calculare...</strong>
                     </div>
                   </div>
 
-                  <!-- ADĂUGAT: Container Motor 2 -->
                   <div id="stats-motor-2" class="stat-content" style="display:none;">
                     <div class="stats-grid">
                       <span>
-                        <div class="tooltip-container">Valoare Curentă (M2)
-                          <span class="tooltip-text">RMS Motor 2.</span>
-                        </div>
-                      </span><strong id="stat-rms-m2">0.00</strong>
+                        <div class="tooltip-container"><span data-lang="metric_rms">Valoare Curentă (M2)</span></div>
+                      </span>
+                      <strong id="stat-rms-m2">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Peak (Vârf M2)
-                          <span class="tooltip-text">Valoarea maximă înregistrată pe Motor 2.</span>
-                        </div>
-                      </span><strong id="stat-peak-m2">0.00</strong>
+                        <div class="tooltip-container"><span data-lang="metric_peak">Peak (Vârf M2)</span></div>
+                      </span>
+                      <strong id="stat-peak-m2">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Factor Creastă (M2)
-                          <span class="tooltip-text">Raportul Peak/RMS pentru Motor 2.</span>
-                        </div>
-                      </span><strong id="stat-crest-m2">0.00</strong>
+                        <div class="tooltip-container"><span data-lang="metric_crest">Factor Creastă (M2)</span></div>
+                      </span>
+                      <strong id="stat-crest-m2">0.00</strong>
 
                       <span>
-                        <div class="tooltip-container">Frecvență Dominantă (M2)
-                          <span class="tooltip-text">Frecvența cu amplitudine maximă Motor 2.</span>
-                        </div>
-                      </span><strong id="stat-freq-m2">0 Hz</strong>
+                        <div class="tooltip-container"><span data-lang="metric_freq">Frecvență Dominantă (M2)</span></div>
+                      </span>
+                      <strong id="stat-freq-m2">0 Hz</strong>
+
+                      <span style="grid-column:1/-1;border-top:1px solid var(--border-color);padding-top:10px;margin-top:5px"></span>
+                      <span data-lang="metric_trend">Trend General (M2):</span>
+                      <strong id="stat_trend_m2">Calculare...</strong>
                     </div>
                   </div>
 
-                  <!-- ADĂUGAT: Container Comparație -->
                   <div id="stats-compare" class="stat-content" style="display:none;">
                     <table style="width: 100%; border-collapse: collapse;">
                       <thead>
                         <tr style="border-bottom: 2px solid var(--border-color);">
-                          <th style="padding: 8px; text-align: left;">Metrică</th>
-                          <th style="padding: 8px; text-align: right; color: var(--accent-color);">Motor 1</th>
-                          <th style="padding: 8px; text-align: right; color: #FFA500;">Motor 2</th>
+                          <th style="padding: 8px; text-align: left;" data-lang="table_metric">Metrică</th>
+                          <th style="padding: 8px; text-align: right; color: var(--accent-color);" data-lang="motor1">Motor 1</th>
+                          <th style="padding: 8px; text-align: right; color: #FFA500;" data-lang="motor2">Motor 2</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -236,7 +234,7 @@
                           <td id="comp-crest-m2" style="padding: 8px; text-align: right; font-weight: 600;">0.00</td>
                         </tr>
                         <tr>
-                          <td style="padding: 8px;">Freq. Dominantă</td>
+                          <td style="padding: 8px;" data-lang="metric_freq">Freq. Dominantă</td>
                           <td id="comp-freq-m1" style="padding: 8px; text-align: right; font-weight: 600;">0 Hz</td>
                           <td id="comp-freq-m2" style="padding: 8px; text-align: right; font-weight: 600;">0 Hz</td>
                         </tr>
@@ -247,85 +245,79 @@
                 </div>
 
                 <div class="alerts-box">
-                  <h3>Istoric Alerte</h3>
+                  <h3 data-lang="alerts_history">Istoric Alerte</h3>
                   <ul class="alerts-list" id="alertsList">
-                    <li>Sistem pornit...</li>                    
+                    <li data-lang="sys_start">Sistem pornit...</li>                    
                   </ul>
-                  <button class="btn btn-estop" id="btnEstop">OPRIRE DE URGENȚĂ</button>
+                  <button class="btn btn-estop" id="btnEstop" data-lang="btn_estop">OPRIRE DE URGENȚĂ</button>
                 </div>
               </div>
             </div>
 
-            <!-- FFT -->
             <div class="card chart-card">
-              <h2>Spectrogramă Vibrații (FFT)</h2>
+              <h2 data-lang="fft_title">Spectrogramă Vibrații (FFT)</h2>
               <div class="chart-controls">
-                <button class="btn-chart" id="btnFftM1">Motor 1</button>
-                <button class="btn-chart" id="btnFftM2">Motor 2</button>
-                <button class="btn-chart active" id="btnFftCompare">Compară (Ambele)</button>
+                <button class="btn-chart" id="btnFftM1" data-lang="motor1">Motor 1</button>
+                <button class="btn-chart" id="btnFftM2" data-lang="motor2">Motor 2</button>
+                <button class="btn-chart active" id="btnFftCompare" data-lang="compare_full">Compară (Ambele)</button>
               </div>
               <canvas id="fftChart"></canvas>
             </div>
           </div>
-
-          
         </div>
       </section>
 
-      <!-- Analysis Page -->
       <section id="page-analysis" class="page-content">
         <div class="container">
-          <h1>Analiză Istorică</h1>
+          <h1 data-lang="page_analysis_title">Analiză Istorică</h1>
           <div class="grid">
-            <div class="card"><h3>Max RMS</h3><p id="analysis-max-rms" class="stat-highlight">0.00</p></div>
-            <div class="card"><h3>Total Alerte</h3><p id="analysis-total-alerts" class="stat-highlight">0</p></div>
-            <div class="card"><h3>Timp Funcționare</h3><p id="analysis-total-runtime" class="stat-highlight">0h 0m 0s</p></div>
-            <div class="card chart-card"><h2>Istoric Medie RMS</h2><canvas id="historicalChart"></canvas></div>
+            <div class="card"><h3 data-lang="card_max_rms">Max RMS</h3><p id="analysis-max-rms" class="stat-highlight">0.00</p></div>
+            <div class="card"><h3 data-lang="card_total_alerts">Total Alerte</h3><p id="analysis-total-alerts" class="stat-highlight">0</p></div>
+            <div class="card"><h3 data-lang="card_runtime">Timp Funcționare</h3><p id="analysis-total-runtime" class="stat-highlight">0h 0m 0s</p></div>
+            <div class="card chart-card"><h2 data-lang="card_history_title">Istoric Medie RMS</h2><canvas id="historicalChart"></canvas></div>
           </div>
         </div>
       </section>
 
-      <!-- Motors Details Page -->
       <section id="page-motors" class="page-content">
         <div class="container">
-          <h1>Detalii Motoare</h1>
+          <h1 data-lang="page_motors_title">Detalii Motoare</h1>
         <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px;">
             <div class="card motor-details-card">
-              <h2>Detalii Motor 1</h2>
+              <h2 data-lang="card_det_m1">Detalii Motor 1</h2>
               <div class="stats-grid">
-                <span>Stare:</span><strong id="motor-detail-status-1">OFF</strong>
-                <span>Viteză Curentă:</span><strong id="motor-detail-speed-1">0</strong>
-                <span>Timp Funcționare:</span><strong id="motor-detail-runtime-1">0h 0m 0s</strong>
-                <span>Cicluri Pornire:</span><strong id="motor-detail-cycles-1">0</strong>
+                <span data-lang="det_status">Stare:</span><strong id="motor-detail-status-1" data-lang="status_off">OPRIT</strong>
+                <span data-lang="det_speed">Viteză Curentă:</span><strong id="motor-detail-speed-1">0</strong>
+                <span data-lang="det_runtime">Timp Funcționare:</span><strong id="motor-detail-runtime-1">0h 0m 0s</strong>
+                <span data-lang="det_cycles">Cicluri Pornire:</span><strong id="motor-detail-cycles-1">0</strong>
               </div>
             </div>
             <div class="card motor-details-card">
-              <h2>Detalii Motor 2</h2>
+              <h2 data-lang="card_det_m2">Detalii Motor 2</h2>
               <div class="stats-grid">
-                <span>Stare:</span><strong id="motor-detail-status-2">OFF</strong>
-                <span>Viteză Curentă:</span><strong id="motor-detail-speed-2">0</strong>
-                <span>Timp Funcționare:</span><strong id="motor-detail-runtime-2">0h 0m 0s</strong>
-                <span>Cicluri Pornire:</span><strong id="motor-detail-cycles-2">0</strong>
+                <span data-lang="det_status">Stare:</span><strong id="motor-detail-status-2" data-lang="status_off">OPRIT</strong>
+                <span data-lang="det_speed">Viteză Curentă:</span><strong id="motor-detail-speed-2">0</strong>
+                <span data-lang="det_runtime">Timp Funcționare:</span><strong id="motor-detail-runtime-2">0h 0m 0s</strong>
+                <span data-lang="det_cycles">Cicluri Pornire:</span><strong id="motor-detail-cycles-2">0</strong>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Settings Page -->
       <section id="page-settings" class="page-content">
         <div class="container">
-          <h1>Setări Sistem</h1>
+          <h1 data-lang="page_settings_title">Setări Sistem</h1>
           <div class="grid">
             <div class="card">
-              <h2>Setări ESP32</h2>
-              <p>Configurare parametri rețea și limite.</p>
-              <a href="/settings" class="btn" style="max-width:300px;text-align:center;text-decoration:none;">Acces Setări Dispozitiv</a>
+              <h2 data-lang="card_esp_title">Setări ESP32</h2>
+              <p data-lang="card_esp_desc">Configurare parametri rețea și limite.</p>
+              <a href="/settings" class="btn" style="max-width:300px;text-align:center;text-decoration:none;" data-lang="btn_esp_access">Acces Setări Dispozitiv</a>
             </div>
             <div class="card">
-              <h2>Setări Interfață</h2>
+              <h2 data-lang="card_ui_title">Setări Interfață</h2>
               <div class="setting-item">
-                <span>Temă Vizuală</span>
+                <span data-lang="lbl_theme">Temă Vizuală</span>
                 <label class="switch">
                   <input type="checkbox" id="themeToggle"/>
                   <span class="slider round"></span>
@@ -338,10 +330,10 @@
     </main>
 
     <footer class="footer">
-      <span id="connectionStatus">Conectare...</span> |
-      Actualizat: <span id="lastUpdate">N/A</span>
+      <span id="connectionStatus" data-lang="footer_conn">Conectare...</span> |
+      <span data-lang="footer_updated">Actualizat:</span> <span id="lastUpdate">N/A</span>
     </footer>
   </div>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
