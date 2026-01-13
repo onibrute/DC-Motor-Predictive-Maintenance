@@ -6,8 +6,8 @@ inline constexpr int   SAMPLES = 256;
 inline constexpr float FS_HZ   = 400.0f;     
 inline constexpr int   FRAME_MS = int((SAMPLES / FS_HZ) * 1000.0f + 0.5f);
 
-inline constexpr float RMS_WARN = 80.0f;
-inline constexpr float RMS_CRIT = 150.0f;
+inline constexpr float RMS_WARN = 1.50f;
+inline constexpr float RMS_CRIT = 3.00f;
 
 // -------- I2C (Senzori) --------
 inline constexpr int I2C_SDA  = 21;

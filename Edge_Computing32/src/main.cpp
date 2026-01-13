@@ -5,6 +5,8 @@
 #include "sensors.h"
 #include "motors.h"
 #include "network.h"
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 // Buffere Motor 1 (MPU1)
 static double vReal1[SAMPLES];
@@ -106,13 +108,14 @@ static void netTask(void* pv) {
       // Trimitem totul la rețea (M1 + M2)
       network_publish(snap1, snap2,
                       fftSnap1, fftSnap2, SAMPLES/2,
-                      rms1Snap, rms2Snap);
+                      snap1.rms, snap2.rms);
     }
 
     vTaskDelay(loopDelay);
   }
 }
 void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
   Serial.begin(115200);
   delay(500);
   Serial.println("=== BUILD NOU PDM ===");

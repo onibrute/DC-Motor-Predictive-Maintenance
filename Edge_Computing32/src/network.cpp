@@ -6,7 +6,7 @@
 #include <ArduinoJson.h>
 #include <SPIFFS.h>
 #include <WiFiUdp.h>
-#include <ESPmDNS.h> // Necesar pentru descoperire
+#include <ESPmDNS.h> 
 #include "motors.h"
 #include "utils.h"
 
@@ -18,7 +18,7 @@ static WiFiClient espClient;
 static PubSubClient mqtt(espClient);
 static WiFiUDP udp;
 
-// HMI Tracking (Reține adresa IP a ecranului)
+// HMI Tracking (reține adresa IP a ecranului)
 static IPAddress hmiIP(0, 0, 0, 0);
 static bool hmiKnown = false;
 
@@ -41,7 +41,7 @@ static void startWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   
-  // CRITICAL: Setăm Hostname pentru ca HMI să ne poată găsi
+  //Setăm Hostname pentru HMI sa ne găsească mai ușor
   WiFi.setHostname(HOSTNAME);
   
   WiFi.begin(config.wifi_ssid.c_str(), config.wifi_pass.c_str());
@@ -117,15 +117,15 @@ static void udpLoop() {
   Serial.print("    De la IP: "); Serial.println(sender);
   Serial.print("    Pe Port: "); Serial.println(senderPort);
 
-  // 1. Auto-Discovery: Salvăm adresa HMI-ului ca să știm unde răspundem
+  // 1. Auto-Discovery: salvăm adresa HMI-ului ca să știm unde răspundem
   hmiIP = sender;
   hmiKnown = true;
 
-  // 2. Citire Mesaj
+  // 2. Citire mesaj
   static char buf[512];
   int n = udp.read((uint8_t*)buf, sizeof(buf) - 1);
   if (n <= 0) return;
-  buf[n] = 0; // Terminație șir
+  buf[n] = 0;
 
   String s(buf); 
   s.trim(); 
@@ -134,16 +134,31 @@ static void udpLoop() {
 
   // 3. Executare Comenzi
   if (s.startsWith("A=")) {
-    int val = s.substring(2).toInt();
-    last_m1_pwm = constrain(val, 0, 255);
-    motorA_set(last_m1_pwm);
-    Serial.printf("    => ACTIUNE: Motor 1 setat la %d\n", last_m1_pwm);
+    int target = constrain(s.substring(2).toInt(), 0, 255);
+    
+    // Protecție: Dacă motorul era oprit și primește viteză mare
+    if (last_m1_pwm == 0 && target > 50) {
+       for (int v = 50; v <= target; v += 20) {
+         motorA_set(v);
+         delay(20);
+       }
+    }
+    motorA_set(target);
+    last_m1_pwm = target;
+    Serial.printf("    => HMI: Motor 1 setat la %d (Safe)\n", last_m1_pwm);
   }
   else if (s.startsWith("B=")) {
-    int val = s.substring(2).toInt();
-    last_m2_pwm = constrain(val, 0, 255);
-    motorB_set(last_m2_pwm);
-    Serial.printf("    => ACTIUNE: Motor 2 setat la %d\n", last_m2_pwm);
+    int target = constrain(s.substring(2).toInt(), 0, 255);
+
+    if (last_m2_pwm == 0 && target > 50) {
+       for (int v = 50; v <= target; v += 20) {
+         motorB_set(v);
+         delay(20);
+       }
+    }
+    motorB_set(target);
+    last_m2_pwm = target;
+    Serial.printf("    => HMI: Motor 2 setat la %d (Safe)\n", last_m2_pwm);
   }
   else if (s.startsWith("STOP") || s.startsWith("ESTOP")) {
     motors_stop_all();
@@ -177,23 +192,72 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
     const char* cmd = doc["cmd"] | "";
     int val = doc["val"] | 0;
 
+    // --- COMANDA PENTRU MOTOR 1 (CU SOFT START) ---
     if (!strcmp(cmd, "toggleM1")) {
       int current = motorA_get_pwm();
-      if (current > 0) { last_m1_pwm = 0; motorA_set(0); }
-      else { if(last_m1_pwm == 0) last_m1_pwm = 180; motorA_set(last_m1_pwm); }
+      if (current > 0) { 
+        // Oprire bruscă (e ok la oprire)
+        last_m1_pwm = 0; 
+        motorA_set(0); 
+      }
+      else { 
+        // PORNIRE LENTĂ (Soft Start) - Protejează bateria
+        int target = (last_m1_pwm == 0) ? 180 : last_m1_pwm;
+        last_m1_pwm = target;
+        
+        // Urcăm viteza în pași mici
+        for (int s = 50; s <= target; s += 20) {
+           motorA_set(s);
+           delay(20); // Pauză mică între pași
+        }
+        motorA_set(target); // Asigurăm valoarea finală
+      }
     }
+    // --- COMANDA PENTRU MOTOR 2 (CU SOFT START) ---
     else if (!strcmp(cmd, "toggleM2")) {
       int current = motorB_get_pwm();
-      if (current > 0) { last_m2_pwm = 0; motorB_set(0); }
-      else { if(last_m2_pwm == 0) last_m2_pwm = 180; motorB_set(last_m2_pwm); }
+      if (current > 0) { 
+        // Oprire
+        last_m2_pwm = 0; 
+        motorB_set(0); 
+      }
+      else { 
+        // PORNIRE LENTĂ (Soft Start)
+        int target = (last_m2_pwm == 0) ? 180 : last_m2_pwm;
+        last_m2_pwm = target;
+
+        for (int s = 50; s <= target; s += 20) {
+           motorB_set(s);
+           delay(20);
+        }
+        motorB_set(target);
+      }
     }
+    // --- ALTE COMENZI (Viteza manuală, ESTOP, Profil) ---
     else if (!strcmp(cmd, "set_m1_speed")) {
-      last_m1_pwm = constrain(val, 0, 255);
-      motorA_set(last_m1_pwm);
+      int target = constrain(val, 0, 255);
+      
+      // Dacă sărim de la 0 la o valoare mare (>50), facem rampă
+      if (last_m1_pwm == 0 && target > 50) {
+          for (int s = 50; s <= target; s += 20) {
+             motorA_set(s);
+             delay(20);
+          }
+      }
+      motorA_set(target);
+      last_m1_pwm = target;
     }
     else if (!strcmp(cmd, "set_m2_speed")) {
-      last_m2_pwm = constrain(val, 0, 255);
-      motorB_set(last_m2_pwm);
+      int target = constrain(val, 0, 255);
+      
+      if (last_m2_pwm == 0 && target > 50) {
+          for (int s = 50; s <= target; s += 20) {
+             motorB_set(s);
+             delay(20);
+          }
+      }
+      motorB_set(target);
+      last_m2_pwm = target;
     }
     else if (!strcmp(cmd, "ESTOP")) {
       motors_stop_all();

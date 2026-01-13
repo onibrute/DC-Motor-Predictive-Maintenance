@@ -130,14 +130,24 @@ void motors_stop_all() {
 void motors_applyProfile(int p) {
   motor_profile = p;
   switch (motor_profile) {
-    case 0: // Normal
+    case 0: // Normal - ACUM CU SOFT START
+      // Pornim ușor ca să nu sară BMS-ul bateriei
+      for (int speed = 50; speed <= 180; speed += 10) {
+          motorA_set(speed);
+          motorB_set(speed);
+          delay(30); // Așteptăm 30ms între pași
+      }
+      // Asigurăm valoarea finală
       motorA_set(180);
       motorB_set(180);
       break;
+
     case 1: // Economy (~60%)
+      // Putem aplica și aici un mini soft-start dacă e nevoie
       motorA_set(120);
       motorB_set(120);
       break;
+
     case 2: // Sync: B după 3s
       motorA_set(180);
       delay(3000);
