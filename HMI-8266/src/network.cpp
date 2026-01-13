@@ -129,6 +129,11 @@ void network_loop() {
             if (doc["m2"]) {
                 g_motor2.speed = doc["m2"]["spd"].as<int>();
                 g_motor2.state = doc["m2"]["on"].as<bool>();
+                
+                g_motor2.rms   = doc["m2"]["rms"].as<float>();       
+                g_motor2.frequency = doc["m2"]["frq"].as<float>();
+                g_motor2.crestFactor = doc["m2"]["cst"].as<float>();
+                
             }
           }
       }
