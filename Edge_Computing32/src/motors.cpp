@@ -11,7 +11,7 @@ static constexpr uint8_t  LEDC_RES  = 8;     // 8-bit
 static constexpr uint8_t  LEDC_CH_A = 0;
 static constexpr uint8_t  LEDC_CH_B = 1;
 
-// NEW: reținem ultimul PWM aplicat (0..255, semn ignorat)
+
 static volatile int g_pwm_a = 0;
 static volatile int g_pwm_b = 0;
 
