@@ -1,82 +1,62 @@
 # DC Motor Predictive Maintenance & Condition Monitoring
 
-
 An **ESP32/ESP8266 edge-computing prototype** for real-time vibration-based condition monitoring of two DC motors. The system acquires vibration data from dual MPU6050 sensors, extracts diagnostic features locally using FFT-based DSP, drives the motors through a TB6612FNG, and distributes telemetry to a local HMI, web dashboard and MQTT endpoint.
-<img width="1109" height="502" alt="ASI documentatie" src="https://github.com/user-attachments/assets/897026ca-0d7f-4764-b1ee-64eecae9bc92" />
+
+<p align="center"><img width="1109" height="502" alt="Physical prototype from the project documentation" src="https://github.com/user-attachments/assets/897026ca-0d7f-4764-b1ee-64eecae9bc92" /></p>
+
 > **Scope:** the implemented system performs condition monitoring, anomaly detection and engineering health-indicator extraction. It does **not** currently estimate Remaining Useful Life (RUL) or predict an absolute failure time.
 
-<p align="center"><img src="docs/assets/system-architecture.svg" alt="System architecture" width="95%"></p>
+## System overview
 
-## Highlights
+<p align="center"><img src="docs/assets/system-architecture.svg" alt="System architecture overview" width="95%"></p>
+
+### Highlights
 
 - Two-channel vibration acquisition using **2 × MPU6050** sensors
-- **400 Hz** sampling and **256-sample** FFT frames
-- RMS, peak, crest factor, dominant frequency and spectral-band energy extraction
+- **400 Hz** sampling and **256-sample FFT frames**
+- RMS, peak, crest factor, dominant-frequency and spectral-band feature extraction
 - Custom **100–180 Hz bearing-oriented energy indicator**
 - RMS-derived 0–100% engineering health indicator
 - FreeRTOS dual-core task partitioning on **ESP32-WROOM-32**
-- Independent ESP32 hardware I2C buses: **400 kHz + 100 kHz**
-- Local **ESP8266 HMI** with SSD1306 OLED, keypad, PCF8574 and buzzer
-- **20 kHz / 8-bit PWM** control through a TB6612FNG dual H-bridge
+- Independent ESP32 hardware I2C buses at **400 kHz** and **100 kHz**
+- Local **ESP8266 HMI** with SSD1306 OLED, PCF8574 keypad expansion and buzzer
+- **20 kHz / 8-bit PWM** motor control through a TB6612FNG dual H-bridge
 - HTTP + WebSocket browser dashboard and MQTT secondary telemetry
-- Custom **QUIC-inspired UDP control/telemetry path** for the local HMI
+- Custom **QUIC-inspired UDP** discovery/control/telemetry path for the local HMI
 - Experimental imbalance and mechanical-crosstalk validation
 
-## QUIC-inspired local UDP path
-<img width="750" height="579" alt="image" src="https://github.com/user-attachments/assets/bf545f74-fb39-44f7-9be4-80db29f1cb78" />
-
-The project documentation calls the fast local protocol **“QUIC-lite.”** This is a project-specific protocol built directly on UDP and **inspired by QUIC’s low-latency design goals**. It is **not an implementation of IETF QUIC / RFC 9000**.
-
-<p align="center"><img src="docs/assets/quic-inspired-udp.svg" alt="QUIC-inspired custom UDP path" width="90%"></p>
-
-Implemented behavior includes:
-
-- local subnet discovery using `PING_DISCOVERY` probes;
-- learning the peer IP from received UDP datagrams;
-- JSON telemetry datagrams;
-- direct motor commands (`A=<PWM>`, `B=<PWM>`, `STOP`, `ESTOP`);
-- no TCP connection setup on the HMI control path.
-
-It does **not** implement QUIC packet framing, TLS 1.3 integration, encrypted transport, multiplexed streams, QUIC connection IDs, congestion control or the RFC 9000 wire format. See [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md).
-
 ## Edge DSP pipeline
-<img width="1111" height="475" alt="image" src="https://github.com/user-attachments/assets/2f3d1d1a-3d70-4120-b387-6f999a0acbe9" />
 
-```text
-MPU6050 acceleration
-        │
-        ▼
-per-sensor offset compensation
-        │
-        ▼
-3-axis magnitude + static-gravity removal
-        │
-        ▼
-frame mean removal
-        │
-        ├──────► RMS / Peak / Crest Factor
-        │
-        ▼
-Hamming window
-        │
-        ▼
-FFT + low-frequency suppression
-        │
-        ├──────► dominant frequency
-        ├──────► 100–180 Hz relative spectral energy
-        └──────► RMS-derived health indicator
-```
+The following figure is taken from the original technical documentation and shows the implemented processing/data path.
 
-The firmware samples both channels, calculates the features locally and shares the resulting metrics/spectra with the networking task through mutex-protected buffers.
+<p align="center"><img width="1111" height="475" alt="DSP architecture from the project documentation" src="https://github.com/user-attachments/assets/2f3d1d1a-3d70-4120-b387-6f999a0acbe9" /></p>
 
-## Real-time architecture
+The firmware performs sensor-offset compensation, acceleration-magnitude processing, frame centering, Hamming windowing, FFT calculation, low-frequency suppression and diagnostic feature extraction.
 
 | ESP32 core | Task | Responsibilities |
 |---|---|---|
 | Core 1 | `SensTask` | Dual MPU6050 acquisition, frame generation, DSP/FFT, metric extraction |
 | Core 0 | `NetTask` | Wi-Fi, UDP, MQTT, WebSocket and HTTP services |
 
-The sensor task runs at higher priority than the network task. The code uses FreeRTOS mutexes around shared metrics and FFT buffers.
+Shared metrics and FFT buffers are protected by FreeRTOS mutexes before the networking task reads them.
+
+## QUIC-inspired local UDP path
+
+The project documentation calls the fast local protocol **“QUIC-lite.”** The figure below is the sequence diagram from the original documentation.
+
+<p align="center"><img width="750" height="579" alt="QUIC-lite sequence diagram from the project documentation" src="https://github.com/user-attachments/assets/bf545f74-fb39-44f7-9be4-80db29f1cb78" /></p>
+
+This is a **project-specific protocol built directly on UDP and inspired by QUIC's low-latency design goals**. It is not an implementation of IETF QUIC / RFC 9000.
+
+Implemented behavior includes:
+
+- local subnet discovery using `PING_DISCOVERY` probes;
+- learning the peer IP from received UDP datagrams;
+- JSON telemetry datagrams;
+- direct motor commands such as `A=<PWM>`, `B=<PWM>`, `STOP` and `ESTOP`;
+- no TCP connection establishment on the HMI control path.
+
+It does not implement QUIC packet framing, TLS 1.3 transport integration, encrypted QUIC payloads, multiplexed streams, QUIC connection IDs, congestion control or the RFC 9000 wire format. See [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md) for the detailed protocol audit.
 
 ## Hardware
 
@@ -88,7 +68,7 @@ The sensor task runs at higher priority than the network task. The code uses Fre
 - SSD1306 OLED
 - PCF8574 I/O expander
 - 4×4 matrix keypad
-- buzzer
+- Buzzer
 - 100 nF logic-side decoupling and 470 µF motor-supply bulk capacitance in the documented prototype
 
 ### Dual-Bus I2C
@@ -98,7 +78,7 @@ The sensor task runs at higher priority than the network task. The code uses Fre
 | Sensor bus 0 | SDA 21 / SCL 22 | 400 kHz |
 | Sensor bus 1 | SDA 18 / SCL 19 | 100 kHz |
 
-Using both ESP32 hardware I2C controllers avoids adding an external multiplexer for the two vibration sensors. During prototyping, one MPU6050-compatible unit reported a non-standard `WHO_AM_I` value (`0x72`); the project documentation records adapting the library validation path to support that device.
+Using both ESP32 hardware I2C controllers avoids an external multiplexer. During prototyping, one MPU6050-compatible device reported a non-standard `WHO_AM_I` value (`0x72`); the project documentation records adapting the library validation path to support that sensor.
 
 ## Condition indicators
 
@@ -111,28 +91,37 @@ Using both ESP32 hardware I2C controllers avoids adding an external multiplexer 
 | Bearing indicator | Fraction of spectral energy inside the configured 100–180 Hz band |
 | Health indicator | Linear RMS-based 0–100% engineering condition score |
 
-The health score is a **heuristic condition indicator**, not a probability of failure.
-<img width="940" height="754" alt="image" src="https://github.com/user-attachments/assets/484c33da-d962-4d90-ae57-dbe228ecbad2" />
+The Health Score is a **heuristic engineering condition indicator**, not a probability of failure or RUL estimate.
+
+<p align="center"><img width="940" height="754" alt="Health-score dashboard from the project documentation" src="https://github.com/user-attachments/assets/484c33da-d962-4d90-ae57-dbe228ecbad2" /></p>
 
 ## Experimental validation
 
-<p align="center"><img src="docs/assets/validation-summary.svg" alt="Experimental validation summary" width="95%"></p>
+The technical report documents a mechanically coupled two-motor test bench with stationary baseline measurements and induced mechanical imbalance.
 
-The submitted technical report documents a mechanically coupled two-motor test setup with baseline and induced-anomaly testing. Reported observations include:
+### Baseline / noise floor
 
-- stationary baseline RMS around **0.03–0.05 g**;
-- induced imbalance producing a dominant component at **43.8 Hz** (~2628 RPM equivalent);
-- RMS around **2.02 g** at the primary anomaly source versus **0.14 g** at the mechanically coupled neighboring motor;
-- approximately **14×** energetic separation in that experiment;
-- reported health indicators of approximately **33%** for the anomalous motor and **95%** for the nominal reference;
-- reported average reaction time below **20 ms** on the local UDP path in the tested LAN environment;
-- dashboard loading measurements of **645 ms cold** versus **152 ms cached**.
+With the motors stopped, the reported RMS floor was approximately **0.03–0.05 g**.
 
-These values are prototype-specific experimental results, not universal performance guarantees. Full discussion: [`docs/VALIDATION.md`](docs/VALIDATION.md).
+<p align="center"><img width="903" height="847" alt="Baseline vibration spectrum from the project documentation" src="https://github.com/user-attachments/assets/c5e78965-6199-4667-8696-05354e81cd5d" /></p>
 
-### Baseline / Noise Floor
-<img width="903" height="847" alt="image" src="https://github.com/user-attachments/assets/c5e78965-6199-4667-8696-05354e81cd5d" />
-<img width="930" height="867" alt="image" src="https://github.com/user-attachments/assets/2e6bc66c-6d5a-4a97-a176-24b43e415792" />
+### Induced imbalance and mechanical crosstalk
+
+A controlled eccentric mass was introduced on one motor while both motors remained mechanically coupled through a common structure.
+
+<p align="center"><img width="930" height="867" alt="Fault spectrum and mechanical crosstalk experiment from the project documentation" src="https://github.com/user-attachments/assets/2e6bc66c-6d5a-4a97-a176-24b43e415792" /></p>
+
+Reported observations for this specific test setup:
+
+- dominant imbalance-related component at **43.8 Hz** (~2628 RPM equivalent);
+- RMS approximately **2.02 g** at the primary anomaly source;
+- RMS approximately **0.14 g** at the mechanically coupled neighboring motor;
+- approximately **14×** RMS separation in the experiment;
+- Health Score approximately **33%** for the anomalous motor and **95%** for the nominal reference;
+- reported average reaction time below **20 ms** on the local UDP path;
+- dashboard load measurements of **645 ms cold** and **152 ms cached**.
+
+These are prototype-specific experimental results, not universal performance guarantees. See [`docs/VALIDATION.md`](docs/VALIDATION.md) for methodology, limitations and interpretation.
 
 ## Communications
 
@@ -142,13 +131,13 @@ These values are prototype-specific experimental results, not universal performa
 | MQTT | Secondary telemetry toward a central station / CLI |
 | WebSocket | Live browser telemetry and FFT updates |
 | HTTP | Dashboard assets and settings endpoints |
-| JSON | Telemetry and command serialization where applicable |
+| JSON | Telemetry serialization where applicable |
 
 ## Web dashboard
 
 The ESP32 serves the project SPA from SPIFFS and pushes live values over WebSocket. The UI provides condition metrics, FFT plots, health visualization and motor controls.
 
-**Important implementation note:** the current `index.html` references Chart.js through `cdn.jsdelivr.net`, so the dashboard firmware is locally hosted but the charting dependency is **not yet fully offline/self-contained**. Client-side HTTP caching is configured to reduce repeated loading. Bundling Chart.js into SPIFFS is a recommended next cleanup step.
+> **Implementation note:** the current `index.html` references Chart.js from `cdn.jsdelivr.net`, so the dashboard is locally hosted but not yet fully offline/self-contained. Bundling Chart.js into SPIFFS is a recommended next cleanup step.
 
 ## Repository structure
 
@@ -159,12 +148,12 @@ The ESP32 serves the project SPA from SPIFFS and pushes live values over WebSock
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── COMMUNICATIONS.md
+│   ├── DOCUMENTATION_AUDIT.md
+│   ├── PORTFOLIO_METADATA.md
 │   ├── SETUP.md
 │   ├── VALIDATION.md
 │   └── assets/
-│       ├── system-architecture.svg
-│       ├── quic-inspired-udp.svg
-│       └── validation-summary.svg
+│       └── system-architecture.svg
 ├── Edge_Computing32/
 │   ├── data/                 # HTML/CSS/JavaScript dashboard
 │   ├── src/                  # acquisition, DSP, motor and network firmware
@@ -212,18 +201,19 @@ Next steps:
 
 - [ ] bundle all web dependencies locally for true offline operation
 - [ ] collect larger labelled datasets across speed/load/fault classes
-- [ ] add long-term trend storage
+- [ ] add long-term condition-trend storage
 - [ ] TinyML anomaly detection
 - [ ] NTP timestamp synchronization
 - [ ] TLS/security hardening
 - [ ] calibrated comparison against reference instrumentation
-- [ ] RUL/prognostics research only after sufficient degradation data exist
+- [ ] RUL/prognostics research after sufficient degradation data are available
 
 ## Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — hardware/software architecture
 - [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md) — UDP “QUIC-lite”, MQTT, WebSocket and HTTP behavior
 - [`docs/VALIDATION.md`](docs/VALIDATION.md) — experimental methodology, measured values and limitations
+- [`docs/DOCUMENTATION_AUDIT.md`](docs/DOCUMENTATION_AUDIT.md) — report-vs-firmware technical audit
 - [`docs/SETUP.md`](docs/SETUP.md) — local configuration and build workflow
 
 ## Author
