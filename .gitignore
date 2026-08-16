@@ -1,0 +1,27 @@
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# Local credentials / machine-specific configuration
+**/src/secrets.h
+**/src/secrets.local.h
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.code-workspace
+
+# Python / tooling caches
+__pycache__/
+*.py[cod]
+
+# Build / temporary output
+build/
+dist/
+*.log
