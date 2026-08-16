@@ -1,125 +1,114 @@
 # System Architecture
 
+<p align="center"><img src="assets/system-architecture.svg" alt="System architecture" width="95%"></p>
+
 ## Overview
 
-The project is organized as a distributed embedded monitoring platform with three functional layers:
+The project is a distributed embedded condition-monitoring platform with three main layers:
 
-1. **ESP32 edge-processing node** — vibration acquisition, DSP, motor control, networking.
-2. **ESP8266 local HMI** — operator feedback, navigation, commands, alerts.
-3. **Browser / central monitoring layer** — live dashboard and secondary telemetry.
+1. **ESP32 edge-processing node** — dual vibration acquisition, DSP, motor control and networking.
+2. **ESP8266 local HMI** — operator feedback, local controls, alerts and discovery.
+3. **Browser / central monitoring layer** — WebSocket dashboard plus secondary MQTT telemetry.
 
-## ESP32 Edge Node
+## ESP32 edge node
 
-The ESP32-WROOM-32 is used as the main compute platform. Its dual-core architecture is exploited to separate deterministic sensing and DSP from Wi-Fi/network processing.
-
-### Core allocation
+The ESP32-WROOM-32 is the primary compute node. The firmware deliberately separates time-critical sensing/DSP from network activity using FreeRTOS task pinning.
 
 | Core | Task | Main responsibilities |
 |---|---|---|
-| Core 1 | `SensTask` | MPU6050 acquisition, frame construction, FFT, condition metrics |
-| Core 0 | `NetTask` | UDP, MQTT, WebSocket, HTTP/network services |
+| Core 1 | `SensTask` | MPU6050 acquisition, 256-sample frame construction, FFT, condition metrics |
+| Core 0 | `NetTask` | UDP, MQTT, WebSocket, HTTP and Wi-Fi services |
 
-The sensor task runs with the higher priority. Shared metrics and FFT buffers are protected with FreeRTOS mutexes before being accessed by the network task.
+The sensor task runs at higher priority. Shared metrics and FFT arrays are protected with FreeRTOS mutexes before the network task reads them.
 
 ## Sampling and DSP
 
-The documented configuration uses:
+Verified configuration:
 
-- Sampling frequency: **400 Hz**
-- Frame length: **256 samples**
-- Approximate spectral range of interest: **0–200 Hz**
+- sampling frequency: **400 Hz**;
+- frame length: **256 samples**;
+- Nyquist limit: **200 Hz**;
+- manual Hamming windowing;
+- low-frequency suppression below approximately 10 Hz after FFT processing.
 
-The signal-processing flow is:
+The processing chain is:
 
-1. Read 3-axis acceleration from the MPU6050.
-2. Apply calibrated sensor offsets.
-3. Compute acceleration-vector magnitude.
-4. Remove the static gravity component.
-5. Remove the frame mean to suppress the DC component.
-6. Compute time-domain metrics.
-7. Apply a Hamming window.
-8. Execute the FFT.
-9. Suppress very-low-frequency content.
-10. Extract spectral metrics and publish the resulting condition indicators.
+1. acquire 3-axis acceleration from each MPU6050;
+2. subtract calibrated sensor offsets;
+3. calculate acceleration-vector magnitude;
+4. remove the static gravity component;
+5. remove the frame mean;
+6. calculate RMS, peak and crest factor;
+7. apply a Hamming window;
+8. execute FFT and convert complex values to magnitude;
+9. suppress low-frequency/DC-region bins;
+10. extract dominant frequency and relative spectral-band energy;
+11. calculate the RMS-derived health indicator.
 
-### Extracted features
+## Extracted features
 
-- RMS vibration
-- Peak amplitude
-- Crest factor
-- Dominant frequency
-- Relative energy in the 100–180 Hz bearing-analysis band
-- RMS-derived health indicator
+- RMS vibration;
+- peak amplitude;
+- crest factor;
+- dominant frequency;
+- relative energy in the configured **100–180 Hz** band;
+- 0–100% RMS-derived health indicator.
 
-## Dual-Bus I2C Acquisition
+The bearing-oriented 100–180 Hz feature is a project-specific engineering indicator. It is not a universal bearing-fault classifier and should be recalibrated for other motors, speeds and structures.
 
-The two vibration sensors are isolated on different ESP32 hardware I2C controllers:
+## Dual-Bus I2C acquisition
 
 | Sensor path | SDA | SCL | Bus speed |
 |---|---:|---:|---:|
 | I2C Bus 0 | GPIO 21 | GPIO 22 | 400 kHz |
 | I2C Bus 1 | GPIO 18 | GPIO 19 | 100 kHz |
 
-This design was selected to avoid address conflicts between similar MPU6050 devices without requiring an external I2C multiplexer.
+Using both ESP32 hardware I2C controllers avoids an external multiplexer for the two vibration sensors.
 
-A non-standard MPU6050-compatible unit encountered during prototyping reported an atypical silicon identifier. The initialization workflow and underlying library handling were adapted to support the device used in the experimental setup.
+The technical report also documents a non-standard MPU6050-compatible device returning `WHO_AM_I = 0x72`. The prototype library validation path was adapted to accept that device during testing.
 
-## Motor Control
+## Motor control
 
 Two DC motors are driven through a TB6612FNG dual H-bridge.
 
-- PWM frequency: **20 kHz**
-- PWM resolution: **8 bit**
-- Independent direction control for both motors
-- Standby path used as part of the shutdown / emergency-stop logic
+- PWM frequency: **20 kHz**;
+- PWM resolution: **8 bit**;
+- independent direction control;
+- standby/emergency-stop capability;
+- software soft-start behavior in network-driven commands.
 
-The ultrasonic PWM frequency avoids the audible switching noise associated with lower PWM frequencies.
+The documented hardware uses a **100 nF** logic-side decoupling capacitor and **470 µF** bulk capacitance on the motor supply to reduce disturbances from inductive loads and startup current.
 
 ## Local HMI
 
-The local console uses an ESP8266-based IdeaSpark board with an integrated SSD1306 OLED.
+The HMI uses an ESP8266 IdeaSpark-style board with integrated SSD1306 OLED. A PCF8574 I/O expander shares the display I2C bus and provides the I/O required by the 4×4 keypad. A buzzer provides warning feedback.
 
-Additional I/O is provided through a PCF8574 expander sharing the I2C bus with the display. A 4×4 matrix keypad provides local navigation and command entry, while a buzzer provides local warning/critical feedback.
+Software modules cover display rendering, input, networking, settings and application state. The report describes full-frame U8g2 rendering with a 1024-byte OLED buffer to avoid flicker while keeping network handling responsive.
 
-The HMI software is split into modules for:
+## Communication architecture
 
-- display rendering
-- input handling
-- networking
-- settings
-- application state
+<p align="center"><img src="assets/quic-inspired-udp.svg" alt="QUIC-inspired UDP path" width="90%"></p>
 
-## Communication Architecture
+### Custom UDP (“QUIC-lite”)
 
-### UDP
-
-Used for the low-latency path between the ESP32 and ESP8266 HMI. The documented prototype includes local subnet discovery using discovery request/response packets followed by JSON telemetry and commands.
+The local HMI path is a **custom UDP protocol inspired by QUIC’s low-latency design goals**. It performs local discovery and carries telemetry / motor commands without a TCP connection setup. It is not standards-compliant QUIC. See [`COMMUNICATIONS.md`](COMMUNICATIONS.md).
 
 ### MQTT
 
-Used as a secondary telemetry path toward a central monitoring station / CLI and as a basis for later database or cloud integration.
+A secondary telemetry route toward a central monitoring station / CLI.
 
 ### WebSocket
 
-Used for live browser telemetry, including motor metrics and FFT data.
+Used for browser telemetry and FFT updates.
 
 ### HTTP
 
-The ESP32 serves the dashboard itself from SPIFFS. Static web resources are cached client-side to reduce repeated transfers and network-core load.
+The ESP32 serves the SPA files from SPIFFS and applies client-side cache headers.
 
-## Web Dashboard
+## Dashboard dependency note
 
-The dashboard is implemented as a Single Page Application stored in the ESP32 flash filesystem. It provides live visualization of condition metrics and spectra and offers control functions without depending on an external cloud service.
+The web application itself is stored in ESP32 SPIFFS, but the current `index.html` imports Chart.js from `cdn.jsdelivr.net`. Consequently, the present dashboard is **locally hosted but not completely offline/self-contained**. Bundling Chart.js into the SPIFFS data folder is recommended for fully offline operation.
 
-## Power and Signal Integrity
+## Edge-computing intent
 
-Because the prototype combines inductive motor loads and vibration sensors on the same system, the hardware includes measures intended to reduce resets and communication corruption:
-
-- local logic decoupling around the motor-driver supply
-- bulk capacitance on the motor-power rail
-- stable I2C pull-up configuration
-- separate I2C controllers for the two sensor paths
-
-## Design Intent
-
-The architecture follows an edge-computing principle: raw high-rate vibration data is processed locally, while compact features and spectra are distributed to the operator interfaces. This reduces network dependency and demonstrates how machine-condition analysis can be performed directly near the monitored asset.
+The core design principle is to process raw vibration data near the monitored asset. High-rate samples are converted into diagnostic features locally; only compact telemetry and spectra are distributed to the HMI, browser and higher-level monitoring path. This demonstrates a practical edge-processing architecture while keeping the limitations of the prototype explicit.
