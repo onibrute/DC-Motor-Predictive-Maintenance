@@ -1,7 +1,8 @@
 # DC Motor Predictive Maintenance & Condition Monitoring
 
-An **ESP32/ESP8266 edge-computing prototype** for real-time vibration-based condition monitoring of two DC motors. The system acquires vibration data from dual MPU6050 sensors, extracts diagnostic features locally using FFT-based DSP, drives the motors through a TB6612FNG, and distributes telemetry to a local HMI, web dashboard and MQTT endpoint.
 
+An **ESP32/ESP8266 edge-computing prototype** for real-time vibration-based condition monitoring of two DC motors. The system acquires vibration data from dual MPU6050 sensors, extracts diagnostic features locally using FFT-based DSP, drives the motors through a TB6612FNG, and distributes telemetry to a local HMI, web dashboard and MQTT endpoint.
+<img width="1109" height="502" alt="ASI documentatie" src="https://github.com/user-attachments/assets/897026ca-0d7f-4764-b1ee-64eecae9bc92" />
 > **Scope:** the implemented system performs condition monitoring, anomaly detection and engineering health-indicator extraction. It does **not** currently estimate Remaining Useful Life (RUL) or predict an absolute failure time.
 
 <p align="center"><img src="docs/assets/system-architecture.svg" alt="System architecture" width="95%"></p>
@@ -22,6 +23,7 @@ An **ESP32/ESP8266 edge-computing prototype** for real-time vibration-based cond
 - Experimental imbalance and mechanical-crosstalk validation
 
 ## QUIC-inspired local UDP path
+<img width="750" height="579" alt="image" src="https://github.com/user-attachments/assets/bf545f74-fb39-44f7-9be4-80db29f1cb78" />
 
 The project documentation calls the fast local protocol **“QUIC-lite.”** This is a project-specific protocol built directly on UDP and **inspired by QUIC’s low-latency design goals**. It is **not an implementation of IETF QUIC / RFC 9000**.
 
@@ -38,6 +40,7 @@ Implemented behavior includes:
 It does **not** implement QUIC packet framing, TLS 1.3 integration, encrypted transport, multiplexed streams, QUIC connection IDs, congestion control or the RFC 9000 wire format. See [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md).
 
 ## Edge DSP pipeline
+<img width="1111" height="475" alt="image" src="https://github.com/user-attachments/assets/2f3d1d1a-3d70-4120-b387-6f999a0acbe9" />
 
 ```text
 MPU6050 acceleration
@@ -109,6 +112,7 @@ Using both ESP32 hardware I2C controllers avoids adding an external multiplexer 
 | Health indicator | Linear RMS-based 0–100% engineering condition score |
 
 The health score is a **heuristic condition indicator**, not a probability of failure.
+<img width="940" height="754" alt="image" src="https://github.com/user-attachments/assets/484c33da-d962-4d90-ae57-dbe228ecbad2" />
 
 ## Experimental validation
 
@@ -125,6 +129,10 @@ The submitted technical report documents a mechanically coupled two-motor test s
 - dashboard loading measurements of **645 ms cold** versus **152 ms cached**.
 
 These values are prototype-specific experimental results, not universal performance guarantees. Full discussion: [`docs/VALIDATION.md`](docs/VALIDATION.md).
+
+### Baseline / Noise Floor
+<img width="903" height="847" alt="image" src="https://github.com/user-attachments/assets/c5e78965-6199-4667-8696-05354e81cd5d" />
+<img width="930" height="867" alt="image" src="https://github.com/user-attachments/assets/2e6bc66c-6d5a-4a97-a176-24b43e415792" />
 
 ## Communications
 
