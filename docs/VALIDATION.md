@@ -1,12 +1,10 @@
 # Experimental Validation
 
-<p align="center"><img src="assets/validation-summary.svg" alt="Experimental validation summary" width="95%"></p>
-
 ## Purpose
 
 The prototype was validated on a mechanically coupled two-motor bench to determine whether the embedded DSP pipeline could distinguish stationary/nominal behavior from an induced mechanical anomaly and expose that distinction through the distributed monitoring interfaces.
 
-The figures and values below are **results reported for this specific experimental setup**. They are not general motor specifications or certified industrial limits.
+The figures and values below are **results reported for this specific experimental setup**. They are not general motor specifications or certified industrial limits. The README now presents the original figures from the submitted project documentation rather than a synthetic validation summary.
 
 ## Test strategy
 
@@ -105,8 +103,6 @@ The report associates these values with ISO 10816 / a small-machine class. The r
 
 For portfolio and technical documentation purposes, they are therefore described as **project-configured experimental thresholds**.
 
-Also, ISO 10816-1:1995 has been withdrawn and replaced by ISO 20816-1:2016. Any future standards-based validation should identify the exact applicable ISO 20816-series part, vibration quantity, measurement location, machine class and operating condition.
-
 ## What the validation supports
 
 For the documented prototype, the experiments support claims of:
@@ -140,7 +136,7 @@ The current work does **not** establish:
 6. Measure false-positive rate, false-negative rate, sensitivity and specificity.
 7. Record long-duration degradation histories before attempting RUL estimation.
 8. Add precise time synchronization for event/trend correlation.
-9. Select the applicable current ISO 20816-series standard and measure the required physical quantity accordingly.
+9. Select the applicable current vibration standard and measure the required physical quantity accordingly.
 10. Harden/authenticate the network control path before deployment outside a controlled LAN.
 
 For the full source-vs-firmware review, see [`DOCUMENTATION_AUDIT.md`](DOCUMENTATION_AUDIT.md).
