@@ -1,207 +1,146 @@
-# Embedded Predictive Maintenance System for DC Motors
+# DC Motor Predictive Maintenance & Condition Monitoring
 
-An embedded **Industry 4.0 condition-monitoring and predictive-maintenance prototype** for detecting mechanical anomalies in DC motors through real-time vibration analysis at the edge.
+An **ESP32/ESP8266 edge-computing prototype** for real-time vibration-based condition monitoring of two DC motors. The system acquires vibration data from dual MPU6050 sensors, extracts diagnostic features locally using FFT-based DSP, drives the motors through a TB6612FNG, and distributes telemetry to a local HMI, web dashboard and MQTT endpoint.
 
-The project combines an **ESP32 dual-core edge node**, two **MPU6050 vibration sensors**, FFT-based digital signal processing, a local **ESP8266 HMI**, a self-hosted browser dashboard, motor control, and hybrid UDP/MQTT communication.
+> **Scope:** the implemented system performs condition monitoring, anomaly detection and engineering health-indicator extraction. It does **not** currently estimate Remaining Useful Life (RUL) or predict an absolute failure time.
 
-> **Scope note:** the current prototype performs real-time condition monitoring, anomaly detection and health-indicator extraction. It does **not** estimate Remaining Useful Life (RUL) or predict an absolute failure time.
+<p align="center"><img src="docs/assets/system-architecture.svg" alt="System architecture" width="95%"></p>
 
-## What this project demonstrates
+## Highlights
 
-- Embedded vibration monitoring for **two DC motors**
-- Deterministic acquisition at **400 Hz** with **256-sample FFT frames**
-- RMS, peak, crest factor, dominant-frequency, bearing-band and health indicators
-- Hamming windowing and low-frequency/DC suppression before spectral analysis
-- **FreeRTOS dual-core task partitioning** on ESP32
-- Two independent hardware I2C buses for identical sensors
-- **UDP + MQTT + WebSocket** communications
-- Local ESP8266 HMI with OLED, keypad and audible alerts
-- **20 kHz PWM** motor control through a TB6612FNG driver
-- A cloud-independent dashboard hosted directly from ESP32 flash
-- Experimental validation using nominal and mechanically faulted motor states
+- Two-channel vibration acquisition using **2 × MPU6050** sensors
+- **400 Hz** sampling and **256-sample** FFT frames
+- RMS, peak, crest factor, dominant frequency and spectral-band energy extraction
+- Custom **100–180 Hz bearing-oriented energy indicator**
+- RMS-derived 0–100% engineering health indicator
+- FreeRTOS dual-core task partitioning on **ESP32-WROOM-32**
+- Independent ESP32 hardware I2C buses: **400 kHz + 100 kHz**
+- Local **ESP8266 HMI** with SSD1306 OLED, keypad, PCF8574 and buzzer
+- **20 kHz / 8-bit PWM** control through a TB6612FNG dual H-bridge
+- HTTP + WebSocket browser dashboard and MQTT secondary telemetry
+- Custom **QUIC-inspired UDP control/telemetry path** for the local HMI
+- Experimental imbalance and mechanical-crosstalk validation
 
-## System architecture
+## QUIC-inspired local UDP path
 
-```text
-                         ┌─────────────────────────────┐
-                         │         Web Browser         │
-                         │ Dashboard / FFT / Controls  │
-                         └──────────────▲──────────────┘
-                                        │ HTTP / WebSocket
-                                        │
-┌─────────────────┐       ┌─────────────┴───────────────┐       ┌─────────────────┐
-│   MPU6050 #1    │ I2C-0 │          ESP32 Edge         │ I2C-1 │   MPU6050 #2    │
-│ Motor 1 sensor  ├──────►│ Core 1: acquisition + DSP   │◄──────┤ Motor 2 sensor  │
-└─────────────────┘       │ Core 0: network services    │       └─────────────────┘
-                          └──────────┬─────────┬─────────┘
-                                     │         │
-                                  UDP│         │MQTT
-                                     │         ▼
-                          ┌───────────▼────┐  Central telemetry / CLI
-                          │ ESP8266 HMI    │
-                          │ OLED + keypad  │
-                          │ buzzer         │
-                          └────────────────┘
-                                     │
-                                     │ operator commands
-                                     ▼
-                          ┌────────────────────┐
-                          │ TB6612FNG Driver   │
-                          │ 2 × DC motors      │
-                          └────────────────────┘
-```
+The project documentation calls the fast local protocol **“QUIC-lite.”** This is a project-specific protocol built directly on UDP and **inspired by QUIC’s low-latency design goals**. It is **not an implementation of IETF QUIC / RFC 9000**.
 
-For a deeper breakdown, see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+<p align="center"><img src="docs/assets/quic-inspired-udp.svg" alt="QUIC-inspired custom UDP path" width="90%"></p>
 
-## Edge-processing pipeline
+Implemented behavior includes:
+
+- local subnet discovery using `PING_DISCOVERY` probes;
+- learning the peer IP from received UDP datagrams;
+- JSON telemetry datagrams;
+- direct motor commands (`A=<PWM>`, `B=<PWM>`, `STOP`, `ESTOP`);
+- no TCP connection setup on the HMI control path.
+
+It does **not** implement QUIC packet framing, TLS 1.3 integration, encrypted transport, multiplexed streams, QUIC connection IDs, congestion control or the RFC 9000 wire format. See [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md).
+
+## Edge DSP pipeline
 
 ```text
-Vibration
-   │
-   ▼
-MPU6050 acceleration acquisition
-   │
-   ▼
-Sensor offset compensation
-   │
-   ▼
-Acceleration magnitude / gravity removal
-   │
-   ▼
-Mean removal
-   │
-   ├──────────────► RMS / Peak / Crest Factor
-   │
-   ▼
+MPU6050 acceleration
+        │
+        ▼
+per-sensor offset compensation
+        │
+        ▼
+3-axis magnitude + static-gravity removal
+        │
+        ▼
+frame mean removal
+        │
+        ├──────► RMS / Peak / Crest Factor
+        │
+        ▼
 Hamming window
-   │
-   ▼
-FFT
-   │
-   ├──────────────► Dominant frequency
-   │
-   ├──────────────► Spectral energy (100–180 Hz)
-   │                    │
-   │                    ▼
-   │              Bearing indicator
-   │
-   └──────────────► Health indicator
-                        │
-                        ▼
-                UDP / MQTT / WebSocket
+        │
+        ▼
+FFT + low-frequency suppression
+        │
+        ├──────► dominant frequency
+        ├──────► 100–180 Hz relative spectral energy
+        └──────► RMS-derived health indicator
 ```
 
-## Real-time software architecture
+The firmware samples both channels, calculates the features locally and shares the resulting metrics/spectra with the networking task through mutex-protected buffers.
 
-The ESP32 firmware separates time-critical acquisition from communication using FreeRTOS.
+## Real-time architecture
 
-### Core 1 — `SensTask`
+| ESP32 core | Task | Responsibilities |
+|---|---|---|
+| Core 1 | `SensTask` | Dual MPU6050 acquisition, frame generation, DSP/FFT, metric extraction |
+| Core 0 | `NetTask` | Wi-Fi, UDP, MQTT, WebSocket and HTTP services |
 
-- Acquires both vibration channels
-- Builds sample frames
-- Calculates FFT and condition metrics
-- Updates shared metric and spectrum buffers
-- Runs at a higher task priority than networking
-
-### Core 0 — `NetTask`
-
-- Handles Wi-Fi and network services
-- Publishes metrics and FFT data
-- Feeds the dashboard at approximately 5 Hz
-- Handles UDP, MQTT and WebSocket traffic
-
-Shared metrics and FFT buffers are protected by FreeRTOS mutexes to avoid race conditions between tasks.
-
-## Condition indicators
-
-| Metric | Purpose |
-|---|---|
-| RMS | Overall vibration severity |
-| Peak | Maximum vibration excursion |
-| Crest factor | Highlights impulsive mechanical events |
-| Dominant frequency | Strongest spectral component |
-| Bearing indicator | Relative energy in the configured 100–180 Hz band |
-| Health indicator | Normalized RMS-based engineering indicator from 0–100% |
-
-The health value is a **heuristic engineering indicator** derived from measured RMS relative to a configured critical threshold. It is not a probabilistic failure prediction.
+The sensor task runs at higher priority than the network task. The code uses FreeRTOS mutexes around shared metrics and FFT buffers.
 
 ## Hardware
 
-### ESP32 edge node
-
-- ESP32-WROOM-32
+- ESP32-WROOM-32 edge node
+- ESP8266 / IdeaSpark HMI board
 - 2 × MPU6050 accelerometer/gyroscope modules
 - TB6612FNG dual motor driver
 - 2 × DC motors
-- Local decoupling and bulk filtering for motor-induced supply disturbances
-
-### ESP8266 local HMI
-
-- ESP8266 / IdeaSpark board
-- Integrated SSD1306 OLED
+- SSD1306 OLED
 - PCF8574 I/O expander
 - 4×4 matrix keypad
-- Buzzer for warning/critical alerts
+- buzzer
+- 100 nF logic-side decoupling and 470 µF motor-supply bulk capacitance in the documented prototype
 
-## Key engineering decisions
+### Dual-Bus I2C
 
-### Dual-bus I2C acquisition
+| Path | Pins | Speed |
+|---|---|---:|
+| Sensor bus 0 | SDA 21 / SCL 22 | 400 kHz |
+| Sensor bus 1 | SDA 18 / SCL 19 | 100 kHz |
 
-The two vibration sensors are isolated on separate ESP32 hardware I2C buses:
+Using both ESP32 hardware I2C controllers avoids adding an external multiplexer for the two vibration sensors. During prototyping, one MPU6050-compatible unit reported a non-standard `WHO_AM_I` value (`0x72`); the project documentation records adapting the library validation path to support that device.
 
-- **Bus 0:** SDA 21 / SCL 22 at 400 kHz
-- **Bus 1:** SDA 18 / SCL 19 at 100 kHz
+## Condition indicators
 
-This avoids an external I2C multiplexer while allowing simultaneous use of two similar sensors. During integration, a non-standard MPU6050-compatible device with an atypical silicon identifier was also handled by adapting the initialization path.
+| Metric | Interpretation |
+|---|---|
+| RMS | Overall vibration severity |
+| Peak | Maximum frame excursion |
+| Crest factor | Relative impulsiveness of the vibration signal |
+| Dominant frequency | Strongest spectral component after preprocessing |
+| Bearing indicator | Fraction of spectral energy inside the configured 100–180 Hz band |
+| Health indicator | Linear RMS-based 0–100% engineering condition score |
 
-### Motor drive and EMC mitigation
-
-The motors are driven by a TB6612FNG using **20 kHz, 8-bit PWM**. The physical prototype uses local decoupling and bulk capacitance to reduce power-rail disturbances caused by inductive loads and startup current.
-
-## Communications
-
-Different communication paths are used for different system requirements:
-
-- **UDP** — low-latency discovery, HMI telemetry and commands
-- **MQTT** — secondary telemetry path for a central monitoring station
-- **WebSocket** — live dashboard updates
-- **HTTP** — self-hosted SPA resources from ESP32 flash
-- **JSON** — telemetry and command serialization
-
-The ESP8266 HMI performs local network discovery and communicates asynchronously with the ESP32 edge node.
-
-## Web dashboard
-
-The ESP32 hosts a Single Page Application directly from SPIFFS, providing:
-
-- Live motor condition metrics
-- FFT/spectral visualization
-- Motor state information
-- Operator controls
-- Browser-side caching to reduce repeated flash/network load
-
-The dashboard does not require an external cloud service.
+The health score is a **heuristic condition indicator**, not a probability of failure.
 
 ## Experimental validation
 
-The prototype was validated with mechanically coupled DC motor assemblies under baseline, nominal and induced-fault conditions.
+<p align="center"><img src="docs/assets/validation-summary.svg" alt="Experimental validation summary" width="95%"></p>
 
-The documented tests include:
+The submitted technical report documents a mechanically coupled two-motor test setup with baseline and induced-anomaly testing. Reported observations include:
 
-- Noise-floor characterization
-- Healthy vs. mechanically faulted operation
-- Induced rotor imbalance
-- Mechanical crosstalk across a shared structure
-- Spectral fault-signature extraction
-- Health-indicator response
-- Network latency measurements
-- Dashboard resource-loading and caching measurements
+- stationary baseline RMS around **0.03–0.05 g**;
+- induced imbalance producing a dominant component at **43.8 Hz** (~2628 RPM equivalent);
+- RMS around **2.02 g** at the primary anomaly source versus **0.14 g** at the mechanically coupled neighboring motor;
+- approximately **14×** energetic separation in that experiment;
+- reported health indicators of approximately **33%** for the anomalous motor and **95%** for the nominal reference;
+- reported average reaction time below **20 ms** on the local UDP path in the tested LAN environment;
+- dashboard loading measurements of **645 ms cold** versus **152 ms cached**.
 
-A fault-related spectral component around **43.8 Hz** was identified in the documented imbalance experiment. The low-latency control path achieved an average reaction time below **20 ms** in the reported test setup.
+These values are prototype-specific experimental results, not universal performance guarantees. Full discussion: [`docs/VALIDATION.md`](docs/VALIDATION.md).
 
-The dashboard validation also recorded **645 ms** for a cold resource load and **152 ms** for a cached reload.
+## Communications
 
-See [`docs/VALIDATION.md`](docs/VALIDATION.md) for the experimental summary.
+| Channel | Role |
+|---|---|
+| Custom UDP (“QUIC-lite”) | HMI discovery, low-latency local telemetry and commands |
+| MQTT | Secondary telemetry toward a central station / CLI |
+| WebSocket | Live browser telemetry and FFT updates |
+| HTTP | Dashboard assets and settings endpoints |
+| JSON | Telemetry and command serialization where applicable |
+
+## Web dashboard
+
+The ESP32 serves the project SPA from SPIFFS and pushes live values over WebSocket. The UI provides condition metrics, FFT plots, health visualization and motor controls.
+
+**Important implementation note:** the current `index.html` references Chart.js through `cdn.jsdelivr.net`, so the dashboard firmware is locally hosted but the charting dependency is **not yet fully offline/self-contained**. Client-side HTTP caching is configured to reduce repeated loading. Bundling Chart.js into SPIFFS is a recommended next cleanup step.
 
 ## Repository structure
 
@@ -211,117 +150,76 @@ See [`docs/VALIDATION.md`](docs/VALIDATION.md) for the experimental summary.
 ├── .gitignore
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── COMMUNICATIONS.md
 │   ├── SETUP.md
-│   └── VALIDATION.md
-│
-├── Edge_Computing32/        # ESP32 edge-processing firmware
-│   ├── data/                # Web dashboard: HTML / CSS / JavaScript
-│   ├── src/                 # Sensors, DSP, motors, networking
-│   │   └── secrets.example.h
+│   ├── VALIDATION.md
+│   └── assets/
+│       ├── system-architecture.svg
+│       ├── quic-inspired-udp.svg
+│       └── validation-summary.svg
+├── Edge_Computing32/
+│   ├── data/                 # HTML/CSS/JavaScript dashboard
+│   ├── src/                  # acquisition, DSP, motor and network firmware
 │   ├── platformio.ini
 │   └── partitions_no_ota.csv
-│
-└── HMI-8266/                # ESP8266 HMI firmware
-    ├── src/                 # Display, input, networking, state
-    │   └── secrets.example.h
+└── HMI-8266/
+    ├── src/                  # display, input, state and UDP HMI firmware
     └── platformio.ini
 ```
 
-## Toolchain and libraries
-
-- C++17
-- PlatformIO
-- Arduino framework
-- FreeRTOS
-- ArduinoFFT
-- ArduinoJson
-- Adafruit MPU6050
-- AsyncTCP
-- ESPAsyncWebServer
-- PubSubClient / MQTT
-- U8g2
-- SPIFFS
-
-## Quick start
-
-### 1. Clone
+## Build
 
 ```bash
 git clone https://github.com/onibrute/ASI-project.git
 cd ASI-project
-```
 
-### 2. Create local credential files
-
-The repository does not require Wi-Fi credentials to be committed.
-
-```bash
 cp Edge_Computing32/src/secrets.example.h Edge_Computing32/src/secrets.h
 cp HMI-8266/src/secrets.example.h HMI-8266/src/secrets.h
+
+cd Edge_Computing32 && pio run
+cd ../HMI-8266 && pio run
 ```
 
-Edit both `secrets.h` files with your local network values. They are ignored by Git.
+See [`docs/SETUP.md`](docs/SETUP.md) before flashing.
 
-### 3. Build ESP32 edge firmware
+## Tech stack
 
-```bash
-cd Edge_Computing32
-pio run
-```
-
-### 4. Build ESP8266 HMI firmware
-
-```bash
-cd ../HMI-8266
-pio run
-```
-
-See [`docs/SETUP.md`](docs/SETUP.md) for flashing, web assets and configuration notes.
+`C++17` · `PlatformIO` · `Arduino` · `FreeRTOS` · `ESP32` · `ESP8266` · `I2C` · `MPU6050` · `arduinoFFT` · `ArduinoJson` · `ESPAsyncWebServer` · `WebSocket` · `MQTT` · `UDP` · `SPIFFS` · `U8g2` · `DSP` · `IIoT`
 
 ## Project status
 
-### Implemented
+Implemented:
 
-- [x] Dual vibration sensing
-- [x] Real-time FFT processing
-- [x] RMS / peak / crest-factor extraction
-- [x] Dominant-frequency extraction
-- [x] Bearing-band energy indicator
-- [x] RMS-based health indicator
-- [x] Dual-core ESP32 task architecture
-- [x] UDP HMI communication
-- [x] MQTT telemetry path
-- [x] WebSocket dashboard telemetry
-- [x] Local ESP8266 HMI
-- [x] PWM motor control
-- [x] Experimental fault-injection tests
+- [x] dual vibration acquisition
+- [x] real-time FFT feature extraction
+- [x] dual-core edge processing
+- [x] web dashboard telemetry and controls
+- [x] ESP8266 local HMI
+- [x] custom UDP discovery/control path
+- [x] MQTT secondary telemetry
+- [x] motor PWM control
+- [x] experimental imbalance/crosstalk evaluation
 
-### Planned / research directions
+Next steps:
 
-- [ ] Long-term condition history and trend analysis
-- [ ] Dataset collection across multiple fault classes
-- [ ] TinyML anomaly detection on the edge
+- [ ] bundle all web dependencies locally for true offline operation
+- [ ] collect larger labelled datasets across speed/load/fault classes
+- [ ] add long-term trend storage
+- [ ] TinyML anomaly detection
 - [ ] NTP timestamp synchronization
-- [ ] TLS for MQTT/WebSocket communications
-- [ ] Automated threshold calibration
-- [ ] Remaining Useful Life estimation
-
-## Why this project matters
-
-The project explores how low-cost embedded hardware can move machine-condition analysis closer to the physical asset. Rather than continuously streaming raw high-rate vibration data to a remote service, the edge node extracts compact diagnostic features locally and distributes the information required by operators and higher-level systems.
-
-It combines **embedded systems, industrial communication, digital signal processing, motor control, IIoT, real-time software and condition monitoring** in a single working prototype.
+- [ ] TLS/security hardening
+- [ ] calibrated comparison against reference instrumentation
+- [ ] RUL/prognostics research only after sufficient degradation data exist
 
 ## Documentation
 
-The repository documentation is derived from the implemented firmware and the associated technical project report for the Embedded Systems Architecture course.
-
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system and software architecture
-- [`docs/VALIDATION.md`](docs/VALIDATION.md) — experimental methodology and measured results
-- [`docs/SETUP.md`](docs/SETUP.md) — local configuration, build and flash workflow
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — hardware/software architecture
+- [`docs/COMMUNICATIONS.md`](docs/COMMUNICATIONS.md) — UDP “QUIC-lite”, MQTT, WebSocket and HTTP behavior
+- [`docs/VALIDATION.md`](docs/VALIDATION.md) — experimental methodology, measured values and limitations
+- [`docs/SETUP.md`](docs/SETUP.md) — local configuration and build workflow
 
 ## Author
 
 **Robert Constantin Preda**  
 Master's programme: Information Technologies in Systems Engineering  
-Project developed for the Embedded Systems Architecture course.
+Embedded Systems Architecture project
