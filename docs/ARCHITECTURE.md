@@ -87,11 +87,9 @@ Software modules cover display rendering, input, networking, settings and applic
 
 ## Communication architecture
 
-<p align="center"><img src="assets/quic-inspired-udp.svg" alt="QUIC-inspired UDP path" width="90%"></p>
-
 ### Custom UDP (“QUIC-lite”)
 
-The local HMI path is a **custom UDP protocol inspired by QUIC’s low-latency design goals**. It performs local discovery and carries telemetry / motor commands without a TCP connection setup. It is not standards-compliant QUIC. See [`COMMUNICATIONS.md`](COMMUNICATIONS.md).
+The local HMI path is a **custom UDP protocol inspired by QUIC’s low-latency design goals**. It performs local discovery and carries telemetry / motor commands without a TCP connection setup. It is not standards-compliant QUIC. The README uses the original sequence diagram from the submitted project documentation. See [`COMMUNICATIONS.md`](COMMUNICATIONS.md).
 
 ### MQTT
 
